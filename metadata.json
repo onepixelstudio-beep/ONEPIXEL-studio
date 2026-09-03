@@ -1,6 +1,6 @@
 {
   "name": "OnePixel Studio",
-  "description": "Estudio avanzado de pixel art y animación frame-a-frame similar a OnePixel Studio y Piskel, con soporte para capas, paletas personalizadas, biblioteca de recursos, herramientas de simetría y patrones repetitivos.",
+  "description": "OnePixel Studio: Editor profesional de gráficos y animaciones pixel art con un sistema avanzado de capas, paletas personalizadas y una interfaz optimizada para creadores y desarrolladores de videojuegos.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

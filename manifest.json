@@ -1,0 +1,28 @@
+{
+  "name": "OnePixel Studio",
+  "short_name": "OnePixel",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0B0F19",
+  "theme_color": "#0B0F19",
+  "description": "OnePixel Studio: Editor profesional de gráficos y animaciones pixel art con un sistema avanzado de capas, paletas personalizadas y una interfaz optimizada para creadores y desarrolladores de videojuegos.",
+  "orientation": "any",
+  "lang": "es",
+  "dir": "ltr",
+  "categories": [
+    "design",
+    "development",
+    "developer tools",
+    "games",
+    "graphics"
+  ],
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
