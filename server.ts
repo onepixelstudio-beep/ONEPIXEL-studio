@@ -283,23 +283,11 @@ app.get('/sw.js', (req, res) => {
   res.sendFile(path.join(process.cwd(), 'sw.js'));
 });
 
-const PWA_IMAGE_ASSETS = [
-  'icon.png',
-  'icon-192.png',
-  'icon-512.png',
-  'icon-maskable.png',
-  'icon apk.png',
-  'screenshot-wide.png',
-  'screenshot-narrow.png'
-];
-
-for (const assetName of PWA_IMAGE_ASSETS) {
-  app.get([`/${assetName}`, `/${encodeURIComponent(assetName)}`], (req, res) => {
-    res.setHeader('Content-Type', 'image/png');
-    res.setHeader('Cache-Control', 'public, max-age=86400');
-    res.sendFile(path.join(process.cwd(), assetName));
-  });
-}
+app.get('/icon.png', (req, res) => {
+  res.setHeader('Content-Type', 'image/png');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.sendFile(path.join(process.cwd(), 'icon.png'));
+});
 
 // ==========================================
 // VITE / STATIC SERVING MIDDLEWARE

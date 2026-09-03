@@ -1,17 +1,12 @@
 // OnePixel Studio Service Worker
-const CACHE_NAME = 'onepixel-v1.1';
+const CACHE_NAME = 'onepixel-v1.2';
 
 // Assets to precache for offline availability
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/icon.png',
-  '/icon-192.png',
-  '/icon-512.png',
-  '/icon-maskable.png',
-  '/screenshot-wide.png',
-  '/screenshot-narrow.png'
+  '/icon.png'
 ];
 
 // Install Event
