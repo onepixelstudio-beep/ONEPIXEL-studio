@@ -8,8 +8,23 @@
     <meta name="theme-color" content="#0B0F19" />
 
     <!-- Web App Manifest for PWA and APK Installation -->
-    <link rel="manifest" href="/manifest.json" />
+    <link rel="manifest" href="./manifest.json" />
     <link rel="apple-touch-icon" href="/icon.png" />
+    
+    <!-- Service Worker Registration for PWA / PWABuilder -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('./sw.js', { scope: './' })
+            .then(function(reg) {
+              console.log('[PWA] Service Worker registrado exitosamente con scope:', reg.scope);
+            })
+            .catch(function(err) {
+              console.warn('[PWA] Error registrando Service Worker:', err);
+            });
+        });
+      }
+    </script>
     
     <!-- Google Fonts Preconnect & Imports -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />

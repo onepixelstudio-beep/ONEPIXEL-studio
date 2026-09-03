@@ -269,6 +269,27 @@ app.post('/api/support/report', async (req, res) => {
 });
 
 // ==========================================
+// PWA & PWABUILDER ENDPOINTS
+// ==========================================
+app.get('/manifest.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+  res.sendFile(path.join(process.cwd(), 'manifest.json'));
+});
+
+app.get('/sw.js', (req, res) => {
+  res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+  res.setHeader('Service-Worker-Allowed', '/');
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.sendFile(path.join(process.cwd(), 'sw.js'));
+});
+
+app.get('/icon.png', (req, res) => {
+  res.setHeader('Content-Type', 'image/png');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.sendFile(path.join(process.cwd(), 'icon.png'));
+});
+
+// ==========================================
 // VITE / STATIC SERVING MIDDLEWARE
 // ==========================================
 async function startServer() {
