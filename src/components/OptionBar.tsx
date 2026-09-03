@@ -403,7 +403,10 @@ export const OptionBar: React.FC<OptionBarProps> = ({
   };
 
   return (
-    <div id="editor-option-bar" className="w-full bg-[#102419] border border-[#102419]/80 rounded-md h-[28px] min-h-[28px] max-h-[28px] px-2 py-0 flex flex-nowrap items-center justify-between gap-1.5 shadow-md text-slate-200 overflow-x-auto custom-scrollbar shrink-0 leading-none">
+    <div 
+      id="editor-option-bar" 
+      className="w-full bg-[#102419] border border-[#102419]/80 rounded-md px-2 py-0 flex flex-nowrap items-center justify-between shadow-md text-slate-200 overflow-x-auto custom-scrollbar shrink-0 leading-none h-[28px] min-h-[28px] max-h-[28px] gap-1.5"
+    >
       {activeStamp ? (
         <div className="flex flex-nowrap items-center gap-2 shrink-0 w-full justify-between">
           {/* Active Sprite Badge */}

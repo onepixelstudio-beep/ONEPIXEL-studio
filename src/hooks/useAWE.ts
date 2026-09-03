@@ -10,8 +10,12 @@ export interface AWEResolve {
   orientation: 'portrait' | 'landscape';
   aspectRatio: number;
   
+  // Specific mobile orientation form factors
+  isMobileLandscape: boolean;
+  isMobilePortrait: boolean;
+  
   // Dynamic layout modes based on actual space
-  layoutMode: 'phone' | 'tablet-portrait' | 'tablet-landscape' | 'desktop-compact' | 'desktop' | 'desktop-wide';
+  layoutMode: 'phone' | 'phone-landscape' | 'tablet-portrait' | 'tablet-landscape' | 'desktop-compact' | 'desktop' | 'desktop-wide';
   interfaceDensity: 'compact' | 'normal' | 'spacious';
   
   // Computed recommendations for layout spacing (in pixels)
@@ -80,19 +84,26 @@ export function useAWE(containerRef?: RefObject<HTMLElement | null>): AWEResolve
 
   const { width, height } = dimensions;
 
-  // 1. Basic responsive classes
-  const isMobile = width < 768;
-  const isTablet = width >= 768 && width < 1100;
-  const isDesktop = width >= 1100;
-  const isLargeDesktop = width >= 1600;
-
-  // 2. Orientation & aspect ratio
-  const orientation = width >= height ? 'landscape' : 'portrait';
+  // 1. Orientation & aspect ratio
+  const orientation: 'portrait' | 'landscape' = width >= height ? 'landscape' : 'portrait';
   const aspectRatio = width / (height || 1);
+
+  // 2. Precise viewport-based form-factor detection:
+  // In mobile landscape, viewport height is critically constrained (typically 320px to 480px, max 520px with mobile browser chrome).
+  // Phone landscape width is typically between 560px and 1024px.
+  // In contrast, tablets in landscape have heights of at least 600px (e.g. iPad 1024x768, 1280x800).
+  const isMobileLandscape = (orientation === 'landscape' || width > height) && height <= 520 && width <= 1024;
+  const isMobilePortrait = width < 768 && orientation === 'portrait';
+  const isMobile = isMobilePortrait || isMobileLandscape;
+  const isTablet = !isMobile && width >= 768 && width < 1100 && height > 520;
+  const isDesktop = !isMobile && width >= 1100;
+  const isLargeDesktop = !isMobile && width >= 1600;
 
   // 3. Progressive layout mode
   let layoutMode: AWEResolve['layoutMode'] = 'desktop';
-  if (width < 640) {
+  if (isMobileLandscape) {
+    layoutMode = 'phone-landscape';
+  } else if (width < 640) {
     layoutMode = 'phone';
   } else if (width < 768) {
     layoutMode = 'tablet-portrait';
@@ -106,21 +117,21 @@ export function useAWE(containerRef?: RefObject<HTMLElement | null>): AWEResolve
 
   // 4. Interface density
   let interfaceDensity: AWEResolve['interfaceDensity'] = 'normal';
-  if (width < 800 || height < 650) {
+  if (isMobileLandscape || width < 800 || height < 650) {
     interfaceDensity = 'compact';
   } else if (width >= 1920 && height >= 1000) {
     interfaceDensity = 'spacious';
   }
 
   // 5. Dynamic dimension recommendations to prioritize the Canvas area
-  const compactHeader = width < 1200 || height < 700;
-  const headerHeight = compactHeader ? 48 : 56;
+  const compactHeader = isMobileLandscape || width < 1200 || height < 700;
+  const headerHeight = isMobileLandscape ? 30 : (compactHeader ? 48 : 56);
 
-  // Timeline recommendations (tighter if height is constrained)
+  // Timeline recommendations (mobile uses drawer modal instead of occupying canvas height)
   const compactTimeline = height < 750 || width < 1000;
   let timelineHeight = 180;
   if (isMobile) {
-    timelineHeight = 110;
+    timelineHeight = 0;
   } else if (compactTimeline) {
     timelineHeight = 140;
   }
@@ -131,7 +142,7 @@ export function useAWE(containerRef?: RefObject<HTMLElement | null>): AWEResolve
   const hideSidebarLabels = width < 1400;
   const canShowBothSidebars = width >= 1280;
 
-  // Width recommendations
+  // Width recommendations (mobile moves sidebars to bottom dock panels)
   const toolbarWidth = isMobile ? 0 : (width < 1200 ? 172 : 198);
   const leftPanelWidth = isMobile ? 0 : (width < 1200 ? 172 : 198);
   const rightPanelWidth = isMobile ? 0 : (sidebarCollapsed ? 200 : 260);
@@ -153,6 +164,8 @@ export function useAWE(containerRef?: RefObject<HTMLElement | null>): AWEResolve
     isLargeDesktop,
     orientation,
     aspectRatio,
+    isMobileLandscape,
+    isMobilePortrait,
     layoutMode,
     interfaceDensity,
     headerHeight,

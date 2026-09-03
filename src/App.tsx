@@ -3880,7 +3880,9 @@ export default function App() {
       <div 
         ref={containerRef}
         className={`h-screen max-h-screen overflow-hidden text-slate-100 flex flex-col selection:bg-brand-sage/30 selection:text-white antialiased font-sans theme-${theme} interface-${preferences.interfaceColor || 'gold'} ui-${preferences.interfaceSize === 'sm' ? 'compact' : preferences.interfaceSize === 'lg' ? 'comfortable' : preferences.interfaceSize === 'xl' ? 'spacious' : 'normal'} colorblind-${preferences.colorBlindness || 'none'} ${preferences.highContrast ? 'high-contrast' : ''} ${
-          preferences.interfaceSize === 'sm' 
+          awe.isMobileLandscape
+            ? 'p-0.5 gap-0.5'
+            : preferences.interfaceSize === 'sm' 
             ? 'p-1 gap-1' 
             : preferences.interfaceSize === 'lg' 
             ? 'p-2.5 sm:p-3 gap-2.5 sm:gap-3' 
@@ -4037,56 +4039,58 @@ export default function App() {
         />
       </HeaderBoundary>
 
-      {/* Tab bar representing open projects */}
-      <div className="px-2 py-0.5 flex items-center gap-1 overflow-x-auto scrollbar-thin shrink-0" id="project-tabs-container">
-        {tabs.map(tab => {
-          const isActive = tab.id === activeTabId;
-          return (
-            <div
-              key={tab.id}
-              onClick={() => {
-                if (!isActive) switchTab(tab.id);
-              }}
-              className={`group relative flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition select-none max-w-[180px] shrink-0 border ${
-                isActive
-                  ? 'bg-[#102419] border-[#C8A96A] text-slate-100 shadow-md'
-                  : 'bg-[#102419]/50 border-transparent text-slate-400 hover:text-slate-200 hover:bg-[#102419]'
-              }`}
-            >
-              {/* Active dot */}
-              {isActive && (
-                <span className="w-1.5 h-1.5 rounded-full bg-[#C8A96A] shrink-0" />
-              )}
-              {/* Tab Title */}
-              <span className="truncate pr-4 font-sans flex items-center gap-1" title={tab.project?.name}>
-                {tab.project?.name || translate('common.untitled', preferences.language)}
-                {tab.project?.isModified && (
-                  <span className="text-amber-400 font-extrabold ml-0.5 animate-pulse" title={translate('layout.unsavedChanges', preferences.language)}>*</span>
-                )}
-              </span>
-              {/* Close Button */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  requestCloseTab(tab.id);
+      {/* Tab bar representing open projects (completely hidden in mobile landscape to maximize canvas workspace) */}
+      {!awe.isMobileLandscape && (
+        <div className="px-2 py-0.5 flex items-center gap-1 overflow-x-auto scrollbar-thin shrink-0" id="project-tabs-container">
+          {tabs.map(tab => {
+            const isActive = tab.id === activeTabId;
+            return (
+              <div
+                key={tab.id}
+                onClick={() => {
+                  if (!isActive) switchTab(tab.id);
                 }}
-                className="absolute right-1.5 opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-100 transition"
+                className={`group relative flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition select-none max-w-[180px] shrink-0 border ${
+                  isActive
+                    ? 'bg-[#102419] border-[#C8A96A] text-slate-100 shadow-md'
+                    : 'bg-[#102419]/50 border-transparent text-slate-400 hover:text-slate-200 hover:bg-[#102419]'
+                }`}
               >
-                <X className="w-3 h-3" />
-              </button>
-            </div>
-          );
-        })}
+                {/* Active dot */}
+                {isActive && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#C8A96A] shrink-0" />
+                )}
+                {/* Tab Title */}
+                <span className="truncate pr-4 font-sans flex items-center gap-1" title={tab.project?.name}>
+                  {tab.project?.name || translate('common.untitled', preferences.language)}
+                  {tab.project?.isModified && (
+                    <span className="text-amber-400 font-extrabold ml-0.5 animate-pulse" title={translate('layout.unsavedChanges', preferences.language)}>*</span>
+                  )}
+                </span>
+                {/* Close Button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    requestCloseTab(tab.id);
+                  }}
+                  className="absolute right-1.5 opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-100 transition"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            );
+          })}
 
-        {/* New Tab Button */}
-        <button
-          onClick={() => handleNewProject(32, 32)}
-          className="flex items-center justify-center p-1.5 rounded-lg border border-[#102419]/40 hover:border-[#C8A96A]/50 bg-[#102419] hover:bg-[#102419] text-slate-400 hover:text-slate-200 transition"
-          title={translate('layout.newProjectTab', preferences.language)}
-        >
-          <span className="text-xs font-bold font-sans px-1">+ {translate('layout.newProjectTab', preferences.language)}</span>
-        </button>
-      </div>
+          {/* New Tab Button */}
+          <button
+            onClick={() => handleNewProject(32, 32)}
+            className="flex items-center justify-center p-1.5 rounded-lg border border-[#102419]/40 hover:border-[#C8A96A]/50 bg-[#102419] hover:bg-[#102419] text-slate-400 hover:text-slate-200 transition"
+            title={translate('layout.newProjectTab', preferences.language)}
+          >
+            <span className="text-xs font-bold font-sans px-1">+ {translate('layout.newProjectTab', preferences.language)}</span>
+          </button>
+        </div>
+      )}
 
       {/* Flexible Full Workspace with collapsing sections */}
       {layerWarningVisible && (
@@ -4206,61 +4210,65 @@ export default function App() {
 
 
         {/* Center Workspace (Canvas and Timeline - the LARGEST section) */}
-        <div className={`flex-1 flex flex-col min-w-0 min-h-0 ${awe.interfaceDensity === 'compact' ? 'gap-1.5' : 'gap-3.5 sm:gap-4'}`}>
+        <div className={`flex-1 flex flex-col min-w-0 min-h-0 ${
+          awe.isMobileLandscape ? 'gap-0.5' : (awe.interfaceDensity === 'compact' ? 'gap-1.5' : 'gap-3.5 sm:gap-4')
+        }`}>
           
-          {/* Options Bar */}
-          <OptionBar
-            currentTool={currentTool}
-            language={preferences.language || 'es'}
-            brushSize={brushSize}
-            onChangeBrushSize={setBrushSize}
-            pixelPerfect={pixelPerfect}
-            onChangePixelPerfect={setPixelPerfect}
-            activeBrush={activeBrush}
-            onChangeActiveBrush={setActiveBrush}
-            sprayDensity={sprayDensity}
-            onChangeSprayDensity={setSprayDensity}
-            sprayRandomness={sprayRandomness}
-            onChangeSprayRandomness={setSprayRandomness}
-            sprayShape={sprayShape}
-            onChangeSprayShape={setSprayShape}
-            ditheringPattern={ditheringPattern}
-            onChangeDitheringPattern={setDitheringPattern}
-            cloneSource={cloneSource}
-            onChangeCloneSource={setCloneSource}
-            bucketContiguous={bucketContiguous}
-            onChangeBucketContiguous={setBucketContiguous}
-            bucketRefer={bucketRefer}
-            onChangeBucketRefer={setBucketRefer}
-            tolerance={tolerance}
-            onChangeTolerance={setTolerance}
-            symmetry={symmetry}
-            onChangeSymmetry={setSymmetry}
-            tiling={tiling}
-            onChangeTiling={setTiling}
-            fillShape={fillShape}
-            onChangeFillShape={setFillShape}
-            selectionActive={activeSelection.active}
-            onClearSelection={() => triggerSelection('deselect')}
-            onInvertSelection={() => triggerSelection('invert')}
-            onSaveAsStamp={() => setIsCaptureModalOpen(true)}
-            onOpenAssetLibrary={() => setAssetLibraryOpen(true)}
-            activeStamp={activeStamp}
-            onClearActiveStamp={() => setActiveStamp(null)}
-            stampScale={stampScale}
-            onChangeStampScale={setStampScale}
-            stampRotation={stampRotation}
-            onChangeStampRotation={setStampRotation}
-            stampFlipH={stampFlipH}
-            onChangeStampFlipH={setStampFlipH}
-            stampFlipV={stampFlipV}
-            onChangeStampFlipV={setStampFlipV}
-            patternMode={patternMode}
-            onChangePatternMode={setPatternMode}
-          />
+          {/* Options Bar (hidden in mobile landscape to maximize canvas workspace; options are accessible via Tools panel) */}
+          {!awe.isMobileLandscape && (
+            <OptionBar
+              currentTool={currentTool}
+              language={preferences.language || 'es'}
+              brushSize={brushSize}
+              onChangeBrushSize={setBrushSize}
+              pixelPerfect={pixelPerfect}
+              onChangePixelPerfect={setPixelPerfect}
+              activeBrush={activeBrush}
+              onChangeActiveBrush={setActiveBrush}
+              sprayDensity={sprayDensity}
+              onChangeSprayDensity={setSprayDensity}
+              sprayRandomness={sprayRandomness}
+              onChangeSprayRandomness={setSprayRandomness}
+              sprayShape={sprayShape}
+              onChangeSprayShape={setSprayShape}
+              ditheringPattern={ditheringPattern}
+              onChangeDitheringPattern={setDitheringPattern}
+              cloneSource={cloneSource}
+              onChangeCloneSource={setCloneSource}
+              bucketContiguous={bucketContiguous}
+              onChangeBucketContiguous={setBucketContiguous}
+              bucketRefer={bucketRefer}
+              onChangeBucketRefer={setBucketRefer}
+              tolerance={tolerance}
+              onChangeTolerance={setTolerance}
+              symmetry={symmetry}
+              onChangeSymmetry={setSymmetry}
+              tiling={tiling}
+              onChangeTiling={setTiling}
+              fillShape={fillShape}
+              onChangeFillShape={setFillShape}
+              selectionActive={activeSelection.active}
+              onClearSelection={() => triggerSelection('deselect')}
+              onInvertSelection={() => triggerSelection('invert')}
+              onSaveAsStamp={() => setIsCaptureModalOpen(true)}
+              onOpenAssetLibrary={() => setAssetLibraryOpen(true)}
+              activeStamp={activeStamp}
+              onClearActiveStamp={() => setActiveStamp(null)}
+              stampScale={stampScale}
+              onChangeStampScale={setStampScale}
+              stampRotation={stampRotation}
+              onChangeStampRotation={setStampRotation}
+              stampFlipH={stampFlipH}
+              onChangeStampFlipH={setStampFlipH}
+              stampFlipV={stampFlipV}
+              onChangeStampFlipV={setStampFlipV}
+              patternMode={patternMode}
+              onChangePatternMode={setPatternMode}
+            />
+          )}
           
           {/* Main drawing canvas area (centered, most highlighted component) */}
-          <div className="flex-1 min-h-0 w-full flex flex-col">
+          <div className={`flex-1 min-h-0 w-full flex flex-col ${awe.isMobileLandscape ? 'pb-14' : ''}`}>
             <CanvasBoundary>
               {(!project || !project.frames || project.frames.length === 0 || tabs.length === 0) ? (
                 <EmptyWorkspace 
@@ -4503,53 +4511,93 @@ export default function App() {
 
       {/* --- MOBILE-ONLY PANEL TOGGLE DOCK --- */}
       {awe.isMobile && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-[#102419]/95 border border-[#102419] px-3 py-1.5 rounded-2xl shadow-2xl flex items-center justify-around gap-2 sm:gap-4 z-40 backdrop-blur-md w-[92%] max-w-sm" id="mobile-navigation-dock">
+        <div className={`fixed left-1/2 -translate-x-1/2 bg-[#102419]/95 border border-[#102419] shadow-2xl flex items-center z-40 backdrop-blur-md transition-all duration-150 ${
+          awe.isMobileLandscape
+            ? 'bottom-2 px-3 py-1.5 rounded-full gap-3 justify-center'
+            : 'bottom-4 px-3 py-1.5 rounded-2xl gap-2 sm:gap-4 w-[92%] max-w-sm justify-around'
+        }`} id="mobile-navigation-dock">
           {/* 1. Herramientas */}
           <button
             onClick={() => setActiveMobilePanel(activeMobilePanel === 'tools' ? null : 'tools')}
-            className={`flex flex-col items-center justify-center gap-0.5 min-w-[56px] min-h-[44px] p-1.5 rounded-xl transition-all duration-150 active:scale-95 touch-manipulation cursor-pointer ${
-              activeMobilePanel === 'tools' ? 'bg-[#102419] text-[#C8A96A] font-bold shadow-inner' : 'text-slate-300 hover:text-white'
+            className={`flex items-center justify-center transition-all duration-150 active:scale-95 touch-manipulation cursor-pointer ${
+              awe.isMobileLandscape 
+                ? 'w-9 h-9 rounded-full' 
+                : 'flex-col gap-0.5 min-w-[56px] min-h-[44px] p-1.5 rounded-xl'
+            } ${
+              activeMobilePanel === 'tools' 
+                ? (awe.isMobileLandscape ? 'bg-[#C8A96A] text-[#102419] font-bold shadow-md' : 'bg-[#102419] text-[#C8A96A] font-bold shadow-inner')
+                : 'text-slate-300 hover:text-white hover:bg-white/10'
             }`}
+            title={translate('toolbar.title', preferences.language) || 'Herramientas'}
             id="mobile-btn-tools"
           >
             <PenTool className="w-5 h-5" />
-            <span className="text-[9px] tracking-tight">{translate('toolbar.title', preferences.language) || 'Herramientas'}</span>
+            {!awe.isMobileLandscape && (
+              <span className="text-[9px] tracking-tight">{translate('toolbar.title', preferences.language) || 'Herramientas'}</span>
+            )}
           </button>
 
           {/* 2. Capas */}
           <button
             onClick={() => setActiveMobilePanel(activeMobilePanel === 'layers' ? null : 'layers')}
-            className={`flex flex-col items-center justify-center gap-0.5 min-w-[56px] min-h-[44px] p-1.5 rounded-xl transition-all duration-150 active:scale-95 touch-manipulation cursor-pointer ${
-              activeMobilePanel === 'layers' ? 'bg-[#102419] text-[#C8A96A] font-bold shadow-inner' : 'text-slate-300 hover:text-white'
+            className={`flex items-center justify-center transition-all duration-150 active:scale-95 touch-manipulation cursor-pointer ${
+              awe.isMobileLandscape 
+                ? 'w-9 h-9 rounded-full' 
+                : 'flex-col gap-0.5 min-w-[56px] min-h-[44px] p-1.5 rounded-xl'
+            } ${
+              activeMobilePanel === 'layers' 
+                ? (awe.isMobileLandscape ? 'bg-[#C8A96A] text-[#102419] font-bold shadow-md' : 'bg-[#102419] text-[#C8A96A] font-bold shadow-inner')
+                : 'text-slate-300 hover:text-white hover:bg-white/10'
             }`}
+            title={translate('layers.title', preferences.language) || 'Capas'}
             id="mobile-btn-layers"
           >
             <Layers className="w-5 h-5" />
-            <span className="text-[9px] tracking-tight">{translate('layers.title', preferences.language) || 'Capas'}</span>
+            {!awe.isMobileLandscape && (
+              <span className="text-[9px] tracking-tight">{translate('layers.title', preferences.language) || 'Capas'}</span>
+            )}
           </button>
 
           {/* 3. Color */}
           <button
             onClick={() => setActiveMobilePanel(activeMobilePanel === 'color' ? null : 'color')}
-            className={`flex flex-col items-center justify-center gap-0.5 min-w-[56px] min-h-[44px] p-1.5 rounded-xl transition-all duration-150 active:scale-95 touch-manipulation cursor-pointer ${
-              activeMobilePanel === 'color' ? 'bg-[#102419] text-[#C8A96A] font-bold shadow-inner' : 'text-slate-300 hover:text-white'
+            className={`flex items-center justify-center transition-all duration-150 active:scale-95 touch-manipulation cursor-pointer ${
+              awe.isMobileLandscape 
+                ? 'w-9 h-9 rounded-full' 
+                : 'flex-col gap-0.5 min-w-[56px] min-h-[44px] p-1.5 rounded-xl'
+            } ${
+              activeMobilePanel === 'color' 
+                ? (awe.isMobileLandscape ? 'bg-[#C8A96A] text-[#102419] font-bold shadow-md' : 'bg-[#102419] text-[#C8A96A] font-bold shadow-inner')
+                : 'text-slate-300 hover:text-white hover:bg-white/10'
             }`}
+            title={translate('colors.title', preferences.language) || 'Color'}
             id="mobile-btn-color"
           >
             <Palette className="w-5 h-5" />
-            <span className="text-[9px] tracking-tight">{translate('colors.title', preferences.language) || 'Color'}</span>
+            {!awe.isMobileLandscape && (
+              <span className="text-[9px] tracking-tight">{translate('colors.title', preferences.language) || 'Color'}</span>
+            )}
           </button>
 
           {/* 4. Animación */}
           <button
             onClick={() => setActiveMobilePanel(activeMobilePanel === 'timeline' ? null : 'timeline')}
-            className={`flex flex-col items-center justify-center gap-0.5 min-w-[56px] min-h-[44px] p-1.5 rounded-xl transition-all duration-150 active:scale-95 touch-manipulation cursor-pointer ${
-              activeMobilePanel === 'timeline' ? 'bg-[#102419] text-[#C8A96A] font-bold shadow-inner' : 'text-slate-300 hover:text-white'
+            className={`flex items-center justify-center transition-all duration-150 active:scale-95 touch-manipulation cursor-pointer ${
+              awe.isMobileLandscape 
+                ? 'w-9 h-9 rounded-full' 
+                : 'flex-col gap-0.5 min-w-[56px] min-h-[44px] p-1.5 rounded-xl'
+            } ${
+              activeMobilePanel === 'timeline' 
+                ? (awe.isMobileLandscape ? 'bg-[#C8A96A] text-[#102419] font-bold shadow-md' : 'bg-[#102419] text-[#C8A96A] font-bold shadow-inner')
+                : 'text-slate-300 hover:text-white hover:bg-white/10'
             }`}
+            title={translate('timeline.title', preferences.language) || 'Animación'}
             id="mobile-btn-timeline"
           >
             <Film className="w-5 h-5" />
-            <span className="text-[9px] tracking-tight">{translate('timeline.title', preferences.language) || 'Animación'}</span>
+            {!awe.isMobileLandscape && (
+              <span className="text-[9px] tracking-tight">{translate('timeline.title', preferences.language) || 'Animación'}</span>
+            )}
           </button>
         </div>
       )}
@@ -4566,8 +4614,10 @@ export default function App() {
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: 15 }}
             onClick={(e) => e.stopPropagation()}
-            className={`bg-[#102419] border border-[#102419] rounded-2xl p-3 sm:p-4 w-[94vw] max-h-[82vh] overflow-y-auto shadow-2xl relative flex flex-col gap-3 text-slate-200 ${
-              activeMobilePanel === 'timeline' ? 'max-w-2xl' : 'max-w-md'
+            className={`bg-[#102419] border border-[#102419] rounded-2xl w-[94vw] overflow-y-auto shadow-2xl relative flex flex-col text-slate-200 ${
+              awe.isMobileLandscape 
+                ? 'p-2.5 max-h-[92vh] max-w-xl gap-2' 
+                : (activeMobilePanel === 'timeline' ? 'p-3 sm:p-4 max-w-2xl max-h-[82vh] gap-3' : 'p-3 sm:p-4 max-w-md max-h-[82vh] gap-3')
             }`}
             id="mobile-panel-drawer"
           >
