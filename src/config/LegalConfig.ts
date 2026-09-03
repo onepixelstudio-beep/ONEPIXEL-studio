@@ -14,6 +14,8 @@ export const LEGAL_EFFECTIVE_DATE = '2025-01-01';
 export const OFFICIAL_LEGAL_EMAIL = 'ONEPIXELSTUDIO.SOPORTE@gmail.com';
 
 export const LEGAL_STORAGE_KEY = 'onepixel_legal_consent_record';
+export const TERMS_ACCEPTED_FLAG = 'onepixel_terms_accepted';
+export const INSTALLATION_CONSENT_FLAG = 'onepixel_installed_consent';
 
 export type LegalSectionId = 'terms' | 'privacy' | 'intellectual_property' | 'licenses' | 'disclaimer' | 'donations' | 'contact';
 
@@ -47,16 +49,37 @@ export function getLegalConsentRecord(): LegalConsentRecord | null {
 }
 
 /**
- * Checks whether the user has already accepted the current active version of legal documents.
+ * Checks whether the user has already accepted the terms and conditions during installation.
+ * Once accepted, this returns true permanently unless the application is completely uninstalled/wiped.
  */
 export function hasAcceptedCurrentLegalVersion(): boolean {
-  const record = getLegalConsentRecord();
-  if (!record) return false;
-  return record.accepted === true && record.version === LEGAL_VERSION;
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return false;
+  }
+
+  try {
+    const record = getLegalConsentRecord();
+    if (record) {
+      return record.accepted === true && record.version === LEGAL_VERSION;
+    }
+
+    // Direct persistent installation flag check
+    if (window.localStorage.getItem(TERMS_ACCEPTED_FLAG) === 'true') {
+      return true;
+    }
+    if (window.localStorage.getItem(INSTALLATION_CONSENT_FLAG) === 'true') {
+      return true;
+    }
+  } catch (err) {
+    console.warn('[LegalConfig] Error checking consent status:', err);
+  }
+
+  return false;
 }
 
 /**
  * Records user acceptance locally with current timestamp, active version and language.
+ * Persists persistent installation flags to guarantee the screen never reappears on normal startups.
  */
 export function saveLegalConsentRecord(language: LanguageCode = 'es'): LegalConsentRecord {
   const record: LegalConsentRecord = {
@@ -69,6 +92,8 @@ export function saveLegalConsentRecord(language: LanguageCode = 'es'): LegalCons
   if (typeof window !== 'undefined' && window.localStorage) {
     try {
       window.localStorage.setItem(LEGAL_STORAGE_KEY, JSON.stringify(record));
+      window.localStorage.setItem(TERMS_ACCEPTED_FLAG, 'true');
+      window.localStorage.setItem(INSTALLATION_CONSENT_FLAG, 'true');
     } catch (err) {
       console.warn('[LegalConfig] Failed to persist legal consent record:', err);
     }
@@ -78,12 +103,14 @@ export function saveLegalConsentRecord(language: LanguageCode = 'es'): LegalCons
 }
 
 /**
- * Clears the locally stored legal consent record. Useful for testing and consent reset.
+ * Clears the locally stored legal consent record. Useful for testing and full uninstallation reset.
  */
 export function clearLegalConsentRecord(): void {
   if (typeof window !== 'undefined' && window.localStorage) {
     try {
       window.localStorage.removeItem(LEGAL_STORAGE_KEY);
+      window.localStorage.removeItem(TERMS_ACCEPTED_FLAG);
+      window.localStorage.removeItem(INSTALLATION_CONSENT_FLAG);
     } catch (err) {
       console.warn('[LegalConfig] Failed to clear legal consent record:', err);
     }

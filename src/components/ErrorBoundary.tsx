@@ -154,6 +154,16 @@ export class ErrorBoundary extends React.Component<Props, State> {
       componentStack: errorInfo.componentStack
     });
 
+    // Mark unexpected closure / crash in localStorage for recovery
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem('onepixel_crash_detected', 'true');
+        window.localStorage.setItem('onepixel_clean_exit', 'false');
+      }
+    } catch (storageErr) {
+      console.warn('Failed to record crash state in localStorage:', storageErr);
+    }
+
     this.setState({ errorInfo, severity }, () => {
       this.saveReportLocally(error, errorInfo, severity, true);
     });
@@ -228,7 +238,22 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   private handleReset = () => {
-    localStorage.clear(); // Clear potentially corrupted state
+    try {
+      // Preserve legal consent records, installation flags, and user preferences
+      const legalRecord = localStorage.getItem('onepixel_legal_consent_record');
+      const termsAccepted = localStorage.getItem('onepixel_terms_accepted');
+      const installedConsent = localStorage.getItem('onepixel_installed_consent');
+      const prefs = localStorage.getItem('pixel_art_preferences');
+
+      localStorage.clear();
+
+      if (legalRecord) localStorage.setItem('onepixel_legal_consent_record', legalRecord);
+      if (termsAccepted) localStorage.setItem('onepixel_terms_accepted', termsAccepted);
+      if (installedConsent) localStorage.setItem('onepixel_installed_consent', installedConsent);
+      if (prefs) localStorage.setItem('pixel_art_preferences', prefs);
+    } catch (e) {
+      console.warn('Error in ErrorBoundary handleReset:', e);
+    }
     window.location.reload();
   };
 

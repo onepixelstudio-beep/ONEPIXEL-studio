@@ -1536,156 +1536,163 @@ export default function App() {
     }
   }, [project?.name, project?.pixels, project?.layers, project?.frames, project?.fps]);
 
-  // --- BEFOREUNLOAD TO PREVENT ACCIDENTAL LOSS ---
+  // --- DEFAULT CLEAN CANVAS INITIALIZER ---
+  const initDefaultCanvas = useCallback((w: number, h: number) => {
+    const fresh = createInitialProject(w, h);
+    const initialSymmetry = { x: false, y: false, radial: false, radialCount: 4, centerX: w / 2, centerY: h / 2 };
+    const initialTiling = { active: false, repeatX: true, repeatY: true };
+    const initialTab: OpenProjectTab = {
+      id: fresh.id,
+      project: fresh,
+      selectedFrameId: fresh.frames[0].id,
+      selectedLayerId: fresh.layers[0].id,
+      undoStack: [],
+      redoStack: [],
+      symmetry: initialSymmetry,
+      tiling: initialTiling
+    };
+
+    lastSavedContentRefs.current[fresh.id] = getProjectContentString(fresh);
+    setTabs([initialTab]);
+    setActiveTabId(fresh.id);
+    setProject(fresh);
+    setSymmetry(initialSymmetry);
+    setTiling(initialTiling);
+    setSelectedFrameId(fresh.frames[0].id);
+    setSelectedLayerId(fresh.layers[0].id);
+    setFrameSelection({
+      activeFrameId: fresh.frames[0].id,
+      focusedFrameId: fresh.frames[0].id,
+      anchorFrameId: fresh.frames[0].id,
+      selectedFrameIds: [fresh.frames[0].id],
+    });
+    setUndoStack([]);
+    setRedoStack([]);
+    setWelcomeOpen(false);
+  }, []);
+
+  // --- LIFECYCLE MANAGEMENT: CLEAN VOLUNTARY EXIT & BEFOREUNLOAD ---
   useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      const hasUnsavedChanges = tabs.some(t => t.project?.isModified);
-      if (hasUnsavedChanges) {
-        e.preventDefault();
-        e.returnValue = 'Tienes cambios sin guardar. ¿Seguro que quieres salir?';
-        return e.returnValue;
+    const handleVoluntaryExitCleanup = () => {
+      const isCrash = localStorage.getItem('onepixel_crash_detected') === 'true';
+      if (!isCrash) {
+        // User is closing voluntarily: clean all temporary session data and backups
+        localStorage.removeItem('pixel_art_active_session');
+        localStorage.removeItem('pixel_art_autosave_backup');
+        localStorage.removeItem('onepixel_crash_detected');
+        localStorage.setItem('onepixel_clean_exit', 'true');
       }
     };
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const isCrash = localStorage.getItem('onepixel_crash_detected') === 'true';
+      if (!isCrash) {
+        const hasUnsavedChanges = tabs.some(t => t.project?.isModified);
+        if (hasUnsavedChanges) {
+          e.preventDefault();
+          e.returnValue = 'Tienes cambios sin guardar. ¿Seguro que quieres salir?';
+          return e.returnValue;
+        }
+        handleVoluntaryExitCleanup();
+      }
+    };
+
+    const handlePageHide = () => {
+      handleVoluntaryExitCleanup();
+    };
+
     window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handlePageHide);
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handlePageHide);
     };
   }, [tabs]);
 
-  // --- INITIALIZATION ---
-
-  // Load last session project if exists
+  // --- INITIALIZATION & SESSION LIFECYCLE ---
   useEffect(() => {
-    let initialProj: PixelProject | null = null;
-    let initialSymmetry: any = null;
-    let initialTiling: any = null;
-    let initialCustomPalette: any = null;
-
-    // Check for unexpected closure backup first asynchronously!
+    const isCrashDetected = localStorage.getItem('onepixel_crash_detected') === 'true';
+    const isCleanExit = localStorage.getItem('onepixel_clean_exit') === 'true';
     const backup = localStorage.getItem('pixel_art_autosave_backup');
-    if (backup) {
+
+    // Scenario 1: Crash / Unexpected closure recovery
+    // ONLY attempt to recover if an abnormal exit occurred (crash detected or abrupt termination without clean exit) AND backup exists
+    const isAbnormalExit = isCrashDetected || (!isCleanExit && Boolean(backup));
+
+    if (isAbnormalExit && backup) {
       setTimeout(() => {
         try {
           const deserialized = ProjectDeserializer.deserialize(backup);
-          WindowSystem.getInstance().confirm(
-            'Recuperar Copia de Seguridad',
-            `Se ha encontrado una copia de seguridad automática de tu proyecto anterior "${deserialized.project.name}". ¿Deseas recuperar este proyecto para continuar tu trabajo?`,
-            'Sí, Recuperar',
-            'Descartar Copia'
-          ).then((confirmed) => {
-            if (confirmed) {
-              // Restore backup
-              setProject(deserialized.project);
-              setSymmetry(deserialized.symmetry);
-              setTiling(deserialized.tiling);
-              if (deserialized.customPalette) {
-                setCustomPalette(deserialized.customPalette);
-              }
-              setTabs(prev => {
-                const currentTabId = prev[0]?.id || `proj-${Date.now()}`;
-                return prev.map(t => t.id === currentTabId ? {
-                  ...t,
-                  id: deserialized.project.id || t.id,
+          if (deserialized && deserialized.project) {
+            WindowSystem.getInstance().confirm(
+              'Recuperar Proyecto tras Cierre Inesperado',
+              `Se ha detectado un cierre inesperado de tu sesión anterior en el proyecto "${deserialized.project.name || 'Sin título'}". ¿Deseas recuperar este trabajo pendiente?`,
+              'Sí, Recuperar',
+              'Descartar y Nuevo Lienzo'
+            ).then((confirmed) => {
+              if (confirmed) {
+                // Restore backup
+                setProject(deserialized.project);
+                const restoredSymmetry = deserialized.symmetry || { x: false, y: false, radial: false, radialCount: 4, centerX: deserialized.project.width / 2, centerY: deserialized.project.height / 2 };
+                const restoredTiling = deserialized.tiling || { active: false, repeatX: true, repeatY: true };
+                setSymmetry(restoredSymmetry);
+                setTiling(restoredTiling);
+                if (deserialized.customPalette) {
+                  setCustomPalette(deserialized.customPalette);
+                }
+                const restoredTab: OpenProjectTab = {
+                  id: deserialized.project.id || `proj-${Date.now()}`,
                   project: deserialized.project,
                   selectedFrameId: deserialized.project.frames[0]?.id || '',
                   selectedLayerId: deserialized.project.layers[0]?.id || '',
                   undoStack: [],
                   redoStack: [],
-                  symmetry: deserialized.symmetry,
-                  tiling: deserialized.tiling
-                } : t);
-              });
-              localStorage.removeItem('pixel_art_autosave_backup');
-              showToast('Proyecto recuperado con éxito de la copia de seguridad', 'success');
-            } else {
-              localStorage.removeItem('pixel_art_autosave_backup');
-              showToast('Copia de seguridad descartada correctamente.', 'info');
-            }
-          });
-        } catch (e) {
-          console.error('Error recovery parsing:', e);
-        }
-      }, 1000);
-    }
-
-    const saved = localStorage.getItem('pixel_art_active_session');
-    let hasSession = false;
-    if (saved) {
-      try {
-        const deserialized = ProjectDeserializer.deserialize(saved);
-        initialProj = deserialized.project;
-        initialSymmetry = deserialized.symmetry;
-        initialTiling = deserialized.tiling;
-        initialCustomPalette = deserialized.customPalette;
-        if (initialProj && Array.isArray(initialProj.frames) && initialProj.frames.length > 0) {
-          hasSession = true;
-        }
-      } catch (e) {
-        hasSession = false;
-      }
-    }
-
-    if (!hasSession) {
-      try {
-        const localList = LocalPersistence.listProjects();
-        if (localList.length > 0) {
-          localList.sort((a, b) => (b.lastSaved || 0) - (a.lastSaved || 0));
-          const candidate = localList[0];
-          if (candidate && Array.isArray(candidate.frames) && candidate.frames.length > 0) {
-            const deserialized = ProjectDeserializer.deserialize(candidate);
-            initialProj = deserialized.project;
-            initialSymmetry = deserialized.symmetry;
-            initialTiling = deserialized.tiling;
-            initialCustomPalette = deserialized.customPalette;
-            hasSession = true;
+                  symmetry: restoredSymmetry,
+                  tiling: restoredTiling,
+                  hasDownloadedInitialFile: deserialized.project.hasDownloadedInitialFile
+                };
+                lastSavedContentRefs.current[restoredTab.id] = getProjectContentString(deserialized.project);
+                setTabs([restoredTab]);
+                setActiveTabId(restoredTab.id);
+                setSelectedFrameId(restoredTab.selectedFrameId);
+                setSelectedLayerId(restoredTab.selectedLayerId);
+                setFrameSelection({
+                  activeFrameId: restoredTab.selectedFrameId,
+                  focusedFrameId: restoredTab.selectedFrameId,
+                  anchorFrameId: restoredTab.selectedFrameId,
+                  selectedFrameIds: restoredTab.selectedFrameId ? [restoredTab.selectedFrameId] : [],
+                });
+                setWelcomeOpen(false);
+                localStorage.removeItem('pixel_art_autosave_backup');
+                localStorage.removeItem('onepixel_crash_detected');
+                localStorage.setItem('onepixel_clean_exit', 'false');
+                showToast('Proyecto recuperado con éxito tras el cierre inesperado', 'success');
+              } else {
+                localStorage.removeItem('pixel_art_autosave_backup');
+                localStorage.removeItem('onepixel_crash_detected');
+                localStorage.setItem('onepixel_clean_exit', 'false');
+                initDefaultCanvas(32, 32);
+                showToast('Copia descartada. Se ha iniciado un nuevo lienzo limpio.', 'info');
+              }
+            });
+            return;
           }
+        } catch (e) {
+          console.error('Error parsing crash recovery backup:', e);
         }
-      } catch (e) {}
+      }, 500);
     }
 
-    if (hasSession && initialProj) {
-      if (!initialSymmetry) {
-        initialSymmetry = { x: false, y: false, radial: false, radialCount: 4, centerX: initialProj.width / 2, centerY: initialProj.height / 2 };
-      }
-      if (!initialTiling) {
-        initialTiling = { active: false, repeatX: true, repeatY: true };
-      }
+    // Scenario 2: Normal startup (default)
+    // Clean start by default: clean temporary session data, ignore past saved projects or past sessions
+    localStorage.removeItem('pixel_art_active_session');
+    localStorage.removeItem('pixel_art_autosave_backup');
+    localStorage.removeItem('onepixel_crash_detected');
+    // Mark current session as active (in-progress) until normal clean exit
+    localStorage.setItem('onepixel_clean_exit', 'false');
 
-      const initialTab: OpenProjectTab = {
-        id: initialProj.id || `proj-${Date.now()}`,
-        project: initialProj,
-        selectedFrameId: initialProj.frames[0]?.id || '',
-        selectedLayerId: initialProj.layers[0]?.id || '',
-        undoStack: [],
-        redoStack: [],
-        symmetry: initialSymmetry,
-        tiling: initialTiling,
-        hasDownloadedInitialFile: initialProj.hasDownloadedInitialFile
-      };
-
-      lastSavedContentRefs.current[initialProj.id] = getProjectContentString(initialProj);
-      setTabs([initialTab]);
-      setActiveTabId(initialTab.id);
-      setProject(initialProj);
-      setSymmetry(initialSymmetry);
-      setTiling(initialTiling);
-      if (initialCustomPalette) {
-        setCustomPalette(initialCustomPalette);
-      }
-      setFrameSelection({
-        activeFrameId: initialTab.selectedFrameId,
-        focusedFrameId: initialTab.selectedFrameId,
-        anchorFrameId: initialTab.selectedFrameId,
-        selectedFrameIds: initialTab.selectedFrameId ? [initialTab.selectedFrameId] : [],
-      });
-      setSelectedLayerId(initialTab.selectedLayerId);
-      setWelcomeOpen(false);
-    } else {
-      setTabs([]);
-      setActiveTabId('');
-      setProject(null);
-      setWelcomeOpen(true);
-    }
+    // Start completely clean as a new canvas (32x32)
+    initDefaultCanvas(32, 32);
 
     // Load custom swatches session
     const swatches = localStorage.getItem('pixel_art_custom_swatches');
@@ -1701,29 +1708,7 @@ export default function App() {
     return () => {
       if (playIntervalRef.current) clearInterval(playIntervalRef.current);
     };
-  }, [loadLibraryPalettes]);
-
-  const initDefaultCanvas = (w: number, h: number) => {
-    const fresh = createInitialProject(w, h);
-    const initialTab: OpenProjectTab = {
-      id: fresh.id,
-      project: fresh,
-      selectedFrameId: fresh.frames[0].id,
-      selectedLayerId: fresh.layers[0].id,
-      undoStack: [],
-      redoStack: [],
-      symmetry: { x: false, y: false, radial: false, radialCount: 4, centerX: w / 2, centerY: h / 2 },
-      tiling: { active: false, repeatX: true, repeatY: true }
-    };
-
-    setTabs([initialTab]);
-    setActiveTabId(fresh.id);
-    setProject(fresh);
-    setSelectedFrameId(fresh.frames[0].id);
-    setSelectedLayerId(fresh.layers[0].id);
-    setUndoStack([]);
-    setRedoStack([]);
-  };
+  }, [loadLibraryPalettes, initDefaultCanvas]);
 
   // Background Interval Auto-backup
   useEffect(() => {
@@ -1773,6 +1758,7 @@ export default function App() {
             customPalette
           });
           localStorage.setItem('pixel_art_active_session', sessionStr);
+          localStorage.setItem('pixel_art_autosave_backup', sessionStr);
         } catch (err: any) {
           if (err.name === 'QuotaExceededError' || err.code === 22 || err.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
             console.warn('Could not auto-save active session due to localStorage quota limits.');
@@ -2857,6 +2843,7 @@ export default function App() {
     setRedoStack([]);
     setCloseAllModalOpen(false);
     localStorage.removeItem('pixel_art_active_session');
+    localStorage.removeItem('pixel_art_autosave_backup');
   };
 
   const handleCloseAllRequest = () => {
@@ -2870,6 +2857,9 @@ export default function App() {
 
   const executeExit = () => {
     localStorage.removeItem('pixel_art_active_session');
+    localStorage.removeItem('pixel_art_autosave_backup');
+    localStorage.removeItem('onepixel_crash_detected');
+    localStorage.setItem('onepixel_clean_exit', 'true');
     setIsExited(true);
     setExitModalOpen(false);
   };
@@ -5074,7 +5064,10 @@ export default function App() {
         isOpen={initialConsentOpen}
         onAccept={() => {
           setInitialConsentOpen(false);
-          setWelcomeOpen(true);
+          setWelcomeOpen(false);
+          if (!project) {
+            initDefaultCanvas(32, 32);
+          }
         }}
         onDecline={() => {
           setIsExited(true);
