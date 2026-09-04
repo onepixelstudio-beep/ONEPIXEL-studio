@@ -946,13 +946,13 @@ const HeaderMenu = React.memo(function HeaderMenu({
   };
 
   return (
-    <div ref={menuContainerRef} className={`flex flex-col ${awe.isMobileLandscape ? 'gap-0' : 'gap-2'} w-full relative z-[100] select-none font-sans`} id="header-menu-container">
+    <div ref={menuContainerRef} className={`flex flex-col ${awe.isMobileLandscape ? 'gap-0' : 'gap-1'} w-full relative z-[100] select-none font-sans`} id="header-menu-container">
       
       {/* 1. Brand Header (Hidden in mobile landscape to maximize vertical canvas space) */}
       {!awe.isMobileLandscape && (
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-2 shrink-0">
-            <OnePixelLogo height={22} className="shrink-0" />
+            <OnePixelLogo height={20} className="shrink-0" />
           </div>
           <div className="text-[10px] text-slate-500 font-mono hidden sm:block">
             v1.2.0
@@ -963,8 +963,8 @@ const HeaderMenu = React.memo(function HeaderMenu({
       {/* 2. Options Bar */}
       <div className={`bg-[#102419] border border-[#102419]/80 ${
         awe.isMobileLandscape 
-          ? 'px-2 py-0.5 min-h-[30px] rounded-lg' 
-          : 'px-2 md:px-4 py-1 rounded-xl'
+          ? 'px-1.5 py-0.5 min-h-[28px] rounded-md' 
+          : 'px-2 md:px-3 py-1 rounded-lg'
       } flex flex-col md:flex-row items-stretch md:items-center justify-start text-slate-100 shadow-lg animate-in slide-in-from-top-1 duration-150 overflow-visible`} id="header-menu-bar">
         
         {/* Mobile Landscape Header Row: Minimalist bar with essential menu and undo/redo only */}

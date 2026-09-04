@@ -39,6 +39,8 @@ export interface ColorPanelProps {
   onClearCustomPalette?: () => void;
   onSavePaletteToLibrary?: () => void;
   onOpenLibrary?: (tab?: string) => void;
+  recentColors?: string[];
+  onClearRecentColors?: () => void;
   onSaveRecentAsPalette?: () => void;
   language?: string;
   libraryPalettes?: CanonicalPalette[] | any[];
@@ -133,6 +135,8 @@ export const ColorPanel: React.FC<ColorPanelProps> = ({
   onClearCustomPalette,
   onSavePaletteToLibrary,
   onOpenLibrary,
+  recentColors = [],
+  onClearRecentColors,
   onSaveRecentAsPalette,
   language = 'es',
   libraryPalettes = [],
@@ -301,9 +305,30 @@ export const ColorPanel: React.FC<ColorPanelProps> = ({
     }
   };
 
+  // Consolidate document colors and recent colors into the official Document Swatches box
+  const consolidatedDocColors = React.useMemo(() => {
+    const set = new Set<string>();
+    const list: string[] = [];
+    (documentColors || []).forEach(col => {
+      const norm = col.toLowerCase();
+      if (!set.has(norm) && norm !== '#00000000' && norm !== 'transparent') {
+        set.add(norm);
+        list.push(col);
+      }
+    });
+    (recentColors || []).forEach(col => {
+      const norm = col.toLowerCase();
+      if (!set.has(norm) && norm !== '#00000000' && norm !== 'transparent') {
+        set.add(norm);
+        list.push(col);
+      }
+    });
+    return list;
+  }, [documentColors, recentColors]);
+
   return (
     <div 
-      className="flex flex-col gap-2 p-2 rounded-xl border text-xs select-none w-full shadow-lg h-full overflow-hidden shrink-0"
+      className="flex flex-col gap-2 p-2 rounded-xl border text-xs select-none w-full shadow-lg h-full min-h-0 overflow-y-auto overflow-x-hidden scrollbar-thin"
       style={{
         backgroundColor: BRAND_COLORS.surfaceSecondary,
         borderColor: BRAND_COLORS.border,
@@ -703,24 +728,36 @@ export const ColorPanel: React.FC<ColorPanelProps> = ({
         )}
       </div>
 
-      {/* 7. MUESTRAS DEL DOCUMENTO */}
+      {/* 7. MUESTRAS DEL DOCUMENTO (CONSOLIDADO) */}
       <div className="flex flex-col gap-1 bg-black/30 p-2 rounded-lg border shrink-0" style={{ borderColor: BRAND_COLORS.borderSubtle }}>
-        <div className="flex items-center justify-between border-b pb-1" style={{ borderColor: BRAND_COLORS.borderSubtle }}>
-          <span className="text-[10px] font-mono font-bold text-slate-300 uppercase tracking-wider">
-            {t('documentSwatches')}
-          </span>
-          <span className="text-[10px] font-mono text-[#C8A96A]">
-            {documentColors.length} {t('colors')}
-          </span>
+        <div className="flex items-center justify-between border-b pb-1 gap-1" style={{ borderColor: BRAND_COLORS.borderSubtle }}>
+          <div className="flex items-center gap-1 min-w-0">
+            <span className="text-[10px] font-mono font-bold text-slate-300 uppercase tracking-wider truncate">
+              {t('documentSwatches')}
+            </span>
+            <span className="text-[10px] font-mono text-[#C8A96A] shrink-0">
+              ({consolidatedDocColors.length})
+            </span>
+          </div>
+
+          {onClearRecentColors && recentColors && recentColors.length > 0 && (
+            <button
+              onClick={onClearRecentColors}
+              className="p-1 rounded bg-white/5 hover:bg-red-500/20 text-gray-300 hover:text-red-400 transition cursor-pointer shrink-0"
+              title={t('clearHistory')}
+            >
+              <Trash2 className="w-3 h-3" />
+            </button>
+          )}
         </div>
 
-        {documentColors.length === 0 ? (
+        {consolidatedDocColors.length === 0 ? (
           <div className="py-2 text-center text-gray-500 italic text-[11px]">
             {t('noColorsDetected')}
           </div>
         ) : (
-          <div className="grid grid-cols-7 gap-1 max-h-24 overflow-y-auto p-1 bg-black/40 rounded border border-white/10 scrollbar-thin">
-            {documentColors.map((col, idx) => (
+          <div className="grid grid-cols-7 gap-1 max-h-28 overflow-y-auto p-1 bg-black/40 rounded border border-white/10 scrollbar-thin">
+            {consolidatedDocColors.map((col, idx) => (
               <button
                 key={`${col}-${idx}`}
                 onClick={() => onChangeColor(col)}
@@ -748,7 +785,7 @@ export const ColorPanel: React.FC<ColorPanelProps> = ({
               showToast(t('swatchesSaved'), 'success');
             }
           }}
-          disabled={documentColors.length === 0}
+          disabled={consolidatedDocColors.length === 0}
           className="w-full py-1.5 px-2 rounded-lg bg-[#C8A96A]/20 hover:bg-[#C8A96A]/30 text-[#C8A96A] border border-[#C8A96A]/40 font-mono font-bold text-[11px] flex items-center justify-center gap-1.5 transition shadow cursor-pointer active:scale-98 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Save className="w-3.5 h-3.5 text-[#C8A96A]" />

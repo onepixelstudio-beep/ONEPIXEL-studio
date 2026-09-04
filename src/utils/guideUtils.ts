@@ -5,8 +5,9 @@ export const GUIDES_RULERS_THEME = {
   guideSessionColor: '#E6F0E9',      // Minty Cream
   guideHighlightColor: '#C8A96A',    // Gold
   rulerBackground: '#102419',
-  rulerBorder: '#102419',
+  rulerBorder: '#17382B',
   rulerTextColor: '#F7F6F1',         // Warm Cream
+  rulerTickColor: '#C8A96A',         // Gold
   rulerIndicatorColor: '#C8A96A',   // Gold
 };
 

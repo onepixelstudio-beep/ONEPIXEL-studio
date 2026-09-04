@@ -189,10 +189,10 @@ function LayerManager({
   };
 
   return (
-    <div className="bg-[#102419] border border-[#0F3D34] rounded-xl p-2 flex flex-col gap-2 text-slate-100 font-sans shadow-xl" id="layer-manager">
+    <div className="bg-[#102419] border border-[#0F3D34] rounded-lg p-1.5 flex flex-col gap-1.5 text-slate-100 font-sans shadow-xl" id="layer-manager">
       
       {/* 1. Header with Title, Count & Add Layer */}
-      <div className="flex justify-between items-center bg-[#030408] p-1.5 rounded-lg border border-[#0F3D34]">
+      <div className="flex justify-between items-center bg-[#030408] p-1 rounded border border-[#0F3D34]">
         <div className="flex items-center gap-1.5">
           <Layers className="w-4 h-4 text-[#C8A96A]" />
           <span className="text-[11px] uppercase font-extrabold text-[#C8A96A] tracking-wider">
@@ -423,7 +423,7 @@ function LayerManager({
 
       {/* 3. Selected Layer Detailed Controls (Blend Mode, Opacity & Action Bar) */}
       {selectedLayer && (
-        <div className="p-2 bg-[#030408]/80 border border-[#0F3D34] rounded-lg flex flex-col gap-2">
+        <div className="p-1.5 bg-[#030408]/80 border border-[#0F3D34] rounded-md flex flex-col gap-1.5">
           
           {/* Blend Mode & Opacity in one row */}
           <div className="grid grid-cols-2 gap-2">

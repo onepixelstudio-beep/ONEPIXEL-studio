@@ -79,22 +79,6 @@ export const THIRD_PARTY_LICENSES: ThirdPartyLicense[] = [
     url: 'https://github.com/Ag-AP/ag-psd'
   },
   {
-    name: 'ase-parser',
-    version: '^0.0.18',
-    license: 'MIT',
-    author: 'Aseprite Parser Contributors',
-    purpose: 'Decodificación e importación de archivos nativos de Aseprite (.ase / .aseprite).',
-    url: 'https://github.com/aseprite'
-  },
-  {
-    name: 'jspdf',
-    version: '^4.2.1',
-    license: 'MIT',
-    author: 'James Hall / parallax',
-    purpose: 'Generación y exportación de hojas de sprites y documentación gráfica en formato PDF.',
-    url: 'https://github.com/parallax/jsPDF'
-  },
-  {
     name: 'nodemailer',
     version: '^9.1.0',
     license: 'MIT',
@@ -117,14 +101,6 @@ export const THIRD_PARTY_LICENSES: ThirdPartyLicense[] = [
     author: 'Motdotla',
     purpose: 'Gestión segura de variables de entorno locales de servidor.',
     url: 'https://github.com/motdotla/dotenv'
-  },
-  {
-    name: '@google/genai',
-    version: '^2.4.0',
-    license: 'Apache-2.0',
-    author: 'Google LLC',
-    purpose: 'Integración del SDK de modelos generativos server-side.',
-    url: 'https://ai.google.dev'
   },
   {
     name: 'tailwindcss & @tailwindcss/vite',

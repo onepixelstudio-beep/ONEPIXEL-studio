@@ -965,10 +965,8 @@ export default function App() {
     }
   };
 
-  // Color history state (persists across saved files during session but cleared on reload/close)
-  const [recentColors, setRecentColors] = useState<string[]>([
-    '#000000', '#ffffff', '#C8A96A', '#a33c75', '#d65193', '#f272b1', '#ff9ecf', '#3296c8', '#edd24c', '#d61a00'
-  ]);
+  // Color history state (persists across saved files during session but starts empty and records user drawn/picked colors)
+  const [recentColors, setRecentColors] = useState<string[]>([]);
 
   const handleColorChange = useCallback((color: string) => {
     if (activeColorSlotRef.current === 'primary') {
@@ -1693,6 +1691,10 @@ export default function App() {
 
     // Start completely clean as a new canvas (32x32)
     initDefaultCanvas(32, 32);
+
+    // Force welcome screen open on normal startup
+    setWelcomeOpen(true);
+    setWelcomeNewProjectOpen(false);
 
     // Load custom swatches session
     const swatches = localStorage.getItem('pixel_art_custom_swatches');
@@ -3873,12 +3875,12 @@ export default function App() {
           awe.isMobileLandscape
             ? 'p-0.5 gap-0.5'
             : preferences.interfaceSize === 'sm' 
-            ? 'p-1 gap-1' 
+            ? 'p-0.5 gap-0.5' 
             : preferences.interfaceSize === 'lg' 
-            ? 'p-2.5 sm:p-3 gap-2.5 sm:gap-3' 
+            ? 'p-1 gap-1' 
             : preferences.interfaceSize === 'xl'
-            ? 'p-3.5 sm:p-4 gap-3.5 sm:gap-4'
-            : 'p-1.5 sm:p-2.5 gap-1.5 sm:gap-2.5'
+            ? 'p-1.5 gap-1.5'
+            : 'p-0.5 sm:p-1 gap-0.5 sm:gap-1'
         }`} 
         id="app-root"
       >
@@ -4106,7 +4108,7 @@ export default function App() {
             className={`${awe.isMobile ? 'hidden' : 'block'} relative shrink-0 transition-all duration-300 ease-in-out`}
             style={{
               width: sidebarVisible ? (awe.width < 1200 ? '172px' : '198px') : '0px',
-              marginInlineEnd: sidebarVisible ? (awe.interfaceDensity === 'compact' ? '4px' : '8px') : '0px',
+              marginInlineEnd: sidebarVisible ? (awe.interfaceDensity === 'compact' ? '2px' : '4px') : '0px',
             }}
             id="left-toolbar-wrapper"
           >
@@ -4201,7 +4203,7 @@ export default function App() {
 
         {/* Center Workspace (Canvas and Timeline - the LARGEST section) */}
         <div className={`flex-1 flex flex-col min-w-0 min-h-0 ${
-          awe.isMobileLandscape ? 'gap-0.5' : (awe.interfaceDensity === 'compact' ? 'gap-1' : 'gap-1.5 sm:gap-2')
+          awe.isMobileLandscape ? 'gap-0.5' : (awe.interfaceDensity === 'compact' ? 'gap-0.5' : 'gap-1')
         }`}>
           
           {/* Options Bar (hidden in mobile landscape to maximize canvas workspace; options are accessible via Tools panel) */}
@@ -4330,27 +4332,18 @@ export default function App() {
           </div>
         </div>
 
-        {/* Right Column (Color Selector & Layers panel - if toggled visible) - hidden on mobile, shown on tablet/desktop */}
+        {/* Right Column (Preview Panel + Color Selector) - matches canvas height, non-collapsible */}
         <SidebarBoundary>
           <div 
-            className={`${awe.isMobile ? 'hidden' : 'block'} relative shrink-0 transition-all duration-300 ease-in-out`}
+            className={`${awe.isMobile ? 'hidden' : 'flex'} flex-col shrink-0 h-full select-none gap-1.5`}
             style={{
-              width: colorsVisible ? (awe.width < 1200 ? '240px' : '264px') : '0px',
-              marginInlineStart: colorsVisible ? (awe.interfaceDensity === 'compact' ? '4px' : '8px') : '0px',
+              width: awe.width < 1200 ? '240px' : '264px',
+              marginInlineStart: awe.interfaceDensity === 'compact' ? '2px' : '4px',
             }}
-            id="right-column-wrapper"
+            id="right-column-container"
           >
-            {/* Transitioning Inner Container */}
-            <div 
-              className="w-full h-full flex flex-col gap-[3px] transition-all duration-300 ease-in-out pr-0.5 scrollbar-thin"
-              style={{
-                opacity: colorsVisible ? 1 : 0,
-                overflowY: 'auto',
-                overflowX: 'hidden',
-                pointerEvents: colorsVisible ? 'auto' : 'none'
-              }}
-            >
-              {/* Mandatory Panel: Preview */}
+            {/* Always-visible Preview Panel beside canvas */}
+            <div className="w-full shrink-0" id="preview-panel-dock">
               <PreviewPanel 
                 project={project}
                 currentFrameId={selectedFrameId}
@@ -4358,8 +4351,13 @@ export default function App() {
                 onTogglePlay={() => setIsPlaying(!isPlaying)}
                 language={preferences.language}
               />
+            </div>
 
-              {/* Custom Interactive Color Panel */}
+            {/* Fixed, full vertical stretch Color Panel (no collapse button, matching canvas height, scrollable) */}
+            <div 
+              className="flex-1 min-h-0 w-full flex flex-col overflow-hidden"
+              id="right-column-wrapper"
+            >
               <ColorPanel 
                 currentColor={currentColor}
                 secondaryColor={secondaryColor}
@@ -4392,30 +4390,6 @@ export default function App() {
                 showToast={showToast}
               />
             </div>
-
-            {/* Toggle Handle Button */}
-            <button
-              onClick={toggleColorsManual}
-              className={`absolute top-1/2 -translate-y-1/2 cursor-pointer z-30 flex items-center justify-center transition-all duration-200 border bg-brand-petroleum hover:bg-brand-turquoise border-brand-turquoise/30 text-slate-400 hover:text-white shadow-lg touch-manipulation`}
-              style={{
-                width: awe.isTablet ? '18px' : '14px',
-                height: awe.isTablet ? '54px' : '48px',
-                [preferences.leftHandedMode ? 'right' : 'left']: awe.isTablet ? '-18px' : '-14px',
-                borderTopRightRadius: preferences.leftHandedMode ? '6px' : '0px',
-                borderBottomRightRadius: preferences.leftHandedMode ? '6px' : '0px',
-                borderTopLeftRadius: preferences.leftHandedMode ? '0px' : '6px',
-                borderBottomLeftRadius: preferences.leftHandedMode ? '0px' : '6px',
-                borderLeftWidth: preferences.leftHandedMode ? '0px' : '1px',
-                borderRightWidth: preferences.leftHandedMode ? '1px' : '0px',
-              }}
-              title={colorsVisible ? "Ocultar Colores & Vista" : "Mostrar Colores & Vista"}
-            >
-              {colorsVisible ? (
-                preferences.leftHandedMode ? <ChevronLeft className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />
-              ) : (
-                preferences.leftHandedMode ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />
-              )}
-            </button>
           </div>
         </SidebarBoundary>
 
@@ -4428,7 +4402,7 @@ export default function App() {
           style={{
             height: timelineVisible ? 'auto' : '0px',
             maxHeight: timelineVisible ? '500px' : '0px',
-            marginTop: timelineVisible ? '8px' : '0px',
+            marginTop: timelineVisible ? '2px' : '0px',
             overflow: timelineVisible ? 'visible' : 'hidden'
           }}
           id="bottom-timeline-wrapper"

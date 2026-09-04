@@ -176,7 +176,7 @@ const Toolbar = React.memo(function Toolbar({
   };
 
   return (
-    <div className="lg:bg-[#102419] lg:border lg:border-[#102419] lg:rounded-xl lg:p-1.5 p-0 bg-transparent border-none flex flex-col gap-1.5 text-slate-100" id="editor-toolbar">
+    <div className="lg:bg-[#102419] lg:border lg:border-[#102419] lg:rounded-lg lg:p-1 p-0 bg-transparent border-none flex flex-col gap-1 text-slate-100" id="editor-toolbar">
       
       {/* Drawing Tools Section */}
       <div>

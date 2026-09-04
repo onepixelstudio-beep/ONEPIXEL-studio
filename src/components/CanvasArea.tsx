@@ -2790,7 +2790,12 @@ const CanvasArea = React.memo(function CanvasArea({
           }
         }
       }
-      if (pickedColor) onPickColor(pickedColor);
+      if (pickedColor) {
+        onPickColor(pickedColor);
+        if (onRecordColorUsage) {
+          onRecordColorUsage(pickedColor);
+        }
+      }
       return;
     }
 
@@ -3005,7 +3010,44 @@ const CanvasArea = React.memo(function CanvasArea({
     }
   };
 
+  // Real-time floating ruler indicator tracker (60/120fps hardware accelerated)
+  const updateRulerIndicators = (clientX: number, clientY: number) => {
+    const drawArea = document.getElementById('canvas-draw-area');
+    if (!drawArea) return;
+    const rect = drawArea.getBoundingClientRect();
+    const rulerX = clientX - rect.left - 24;
+    const rulerY = clientY - rect.top - 24;
+
+    const indH = document.getElementById('ruler-indicator-h');
+    if (indH) {
+      if (rulerX >= 0 && rulerX <= rect.width - 24) {
+        indH.style.transform = `translateX(${rulerX}px)`;
+        indH.style.opacity = '1';
+      } else {
+        indH.style.opacity = '0';
+      }
+    }
+
+    const indV = document.getElementById('ruler-indicator-v');
+    if (indV) {
+      if (rulerY >= 0 && rulerY <= rect.height - 24) {
+        indV.style.transform = `translateY(${rulerY}px)`;
+        indV.style.opacity = '1';
+      } else {
+        indV.style.opacity = '0';
+      }
+    }
+  };
+
+  const hideRulerIndicators = () => {
+    const indH = document.getElementById('ruler-indicator-h');
+    if (indH) indH.style.opacity = '0';
+    const indV = document.getElementById('ruler-indicator-v');
+    if (indV) indV.style.opacity = '0';
+  };
+
   const handleMouseMove = (e: React.MouseEvent) => {
+    updateRulerIndicators(e.clientX, e.clientY);
     if (transformState.isActive) {
       if (activeHandleRef.current && dragStartMouseRef.current && dragStartTransformRef.current) {
         const rect = canvasRef.current!.getBoundingClientRect();
@@ -3544,6 +3586,9 @@ const CanvasArea = React.memo(function CanvasArea({
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches[0]) {
+      updateRulerIndicators(e.touches[0].clientX, e.touches[0].clientY);
+    }
     // Multi-touch gestures (Pinch-to-zoom & Two-finger Pan)
     if (e.touches.length >= 2 && pinchRef.current?.active) {
       const t0 = e.touches[0];
@@ -3649,11 +3694,20 @@ const CanvasArea = React.memo(function CanvasArea({
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
+      onMouseLeave={(e) => {
+        handleMouseUp();
+        hideRulerIndicators();
+      }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      onTouchCancel={handleTouchEnd}
+      onTouchEnd={(e) => {
+        handleTouchEnd(e);
+        hideRulerIndicators();
+      }}
+      onTouchCancel={(e) => {
+        handleTouchEnd(e);
+        hideRulerIndicators();
+      }}
       id="canvas-draw-area"
     >
       
@@ -3662,20 +3716,21 @@ const CanvasArea = React.memo(function CanvasArea({
         <>
           {/* Corner piece */}
           <div 
-            className="absolute top-0 left-0 w-6 h-6 ruler-corner bg-[#102419] border-r border-b border-[#102419] z-30 flex items-center justify-center cursor-default"
+            className="absolute top-0 left-0 w-6 h-6 ruler-corner bg-[#0C1813] border-r border-b border-[#1A382A] z-30 flex items-center justify-center cursor-default select-none group/corner shadow-xs"
             style={{ width: '24px', height: '24px' }}
+            title={`${project.width} × ${project.height} px`}
           >
-            <div className="w-1.5 h-1.5 ruler-corner-dot bg-[#102419] rounded-full" />
+            <span className="text-[8.5px] font-mono font-bold text-[#C8A96A] group-hover/corner:text-[#E5C378] transition-colors leading-none tracking-tighter">px</span>
           </div>
 
           {/* Horizontal Ruler */}
           <div 
-            className="absolute top-0 left-6 right-0 h-6 z-30 overflow-hidden ruler-bar-horizontal border-b border-[#102419] bg-[#102419]"
+            className="absolute top-0 left-6 right-0 h-6 z-30 overflow-hidden ruler-bar-horizontal border-b border-[#1A382A] bg-[#0C1813]"
             style={{ top: 0, left: '24px', height: '24px' }}
           >
             <RulerHorizontal
               zoom={zoom}
-              panX={panX}
+              panX={panX - 24}
               width={project.width}
               cursorX={coordDisplay ? coordDisplay.x : null}
               onStartDragNewGuide={(e) => handleStartDragNewGuide('horizontal', e)}
@@ -3687,12 +3742,12 @@ const CanvasArea = React.memo(function CanvasArea({
 
           {/* Vertical Ruler */}
           <div 
-            className="absolute top-6 left-0 bottom-0 w-6 z-30 overflow-hidden ruler-bar-vertical border-r border-[#102419] bg-[#102419]"
+            className="absolute top-6 left-0 bottom-0 w-6 z-30 overflow-hidden ruler-bar-vertical border-r border-[#1A382A] bg-[#0C1813]"
             style={{ top: '24px', left: 0, width: '24px' }}
           >
             <RulerVertical
               zoom={zoom}
-              panY={panY}
+              panY={panY - 24}
               height={project.height}
               cursorY={coordDisplay ? coordDisplay.y : null}
               onStartDragNewGuide={(e) => handleStartDragNewGuide('vertical', e)}

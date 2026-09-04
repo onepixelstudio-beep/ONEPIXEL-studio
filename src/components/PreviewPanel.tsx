@@ -93,7 +93,7 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = React.memo(function Pre
 
   return (
     <div 
-      className={`w-full p-2.5 flex flex-col gap-2 bg-[#0F3D34] border border-[#102419]/60 rounded-xl overflow-hidden shadow-md ${className}`} 
+      className={`w-full p-1.5 flex flex-col gap-1.5 bg-[#0F3D34] border border-[#102419]/60 rounded-lg overflow-hidden shadow-md shrink-0 ${className}`} 
       id="studio-preview-panel"
     >
       {/* Header bar */}
@@ -147,18 +147,22 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = React.memo(function Pre
         </div>
       </div>
 
-      {/* Static Pixel Art Viewport Container - Full size scaling, centered without cropping */}
-      <div className="w-full flex-1 min-h-[140px] max-h-[260px] bg-[#102419] rounded-lg border border-[#102419]/80 p-2 flex items-center justify-center relative overflow-hidden select-none">
-        <div className="w-full h-full flex items-center justify-center overflow-hidden">
+      {/* Viewport Container - Full width matching panel layout, with height reduced by exactly 30px for a compact vertical footprint */}
+      <div 
+        className="w-full h-[150px] bg-[#102419] rounded-md border border-[#17382B] p-2 flex items-center justify-center relative overflow-hidden select-none shadow-inner"
+        style={{ width: '100%', height: '150px' }}
+      >
+        <div className="w-full h-full flex items-center justify-center relative">
           <canvas
             ref={canvasRef}
-            className="max-w-full max-h-full rounded select-none pointer-events-none transition-all duration-150"
+            className="rounded select-none pointer-events-none drop-shadow-md transition-all duration-100"
             style={{ 
               imageRendering: 'pixelated',
-              width: 'auto',
-              height: 'auto',
-              maxWidth: '100%',
-              maxHeight: '100%',
+              width: project.width >= project.height ? '92%' : 'auto',
+              height: project.height >= project.width ? '92%' : 'auto',
+              maxWidth: '92%',
+              maxHeight: '92%',
+              aspectRatio: `${project.width} / ${project.height}`,
               objectFit: 'contain'
             }}
           />

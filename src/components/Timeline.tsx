@@ -359,10 +359,10 @@ const Timeline = React.memo(function Timeline({
   }, [nonEmptyKeysSet]);
 
   return (
-    <div className="bg-[#0F3D34] border border-[#0F3D34] rounded-xl text-slate-300 font-sans select-none shadow-2xl flex flex-col relative" id="animation-timeline">
+    <div className="bg-[#0F3D34] border border-[#0F3D34] rounded-lg text-slate-300 font-sans select-none shadow-2xl flex flex-col relative" id="animation-timeline">
       
       {/* 1. TOP BAR: Controls Bar */}
-      <div className="bg-[#030408] border-b border-[#0F3D34] px-3 py-1 flex flex-wrap items-center justify-between gap-2">
+      <div className="bg-[#030408] border-b border-[#0F3D34] px-2 py-0.5 flex flex-wrap items-center justify-between gap-1.5">
         
         {/* Playback Controls group */}
         <div className="flex items-center gap-2">
