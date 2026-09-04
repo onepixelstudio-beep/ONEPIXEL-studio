@@ -4201,7 +4201,7 @@ export default function App() {
 
         {/* Center Workspace (Canvas and Timeline - the LARGEST section) */}
         <div className={`flex-1 flex flex-col min-w-0 min-h-0 ${
-          awe.isMobileLandscape ? 'gap-0.5' : (awe.interfaceDensity === 'compact' ? 'gap-1.5' : 'gap-3.5 sm:gap-4')
+          awe.isMobileLandscape ? 'gap-0.5' : (awe.interfaceDensity === 'compact' ? 'gap-1' : 'gap-1.5 sm:gap-2')
         }`}>
           
           {/* Options Bar (hidden in mobile landscape to maximize canvas workspace; options are accessible via Tools panel) */}

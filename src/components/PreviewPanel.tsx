@@ -148,17 +148,21 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = React.memo(function Pre
       </div>
 
       {/* Static Pixel Art Viewport Container - Full size scaling, centered without cropping */}
-      <div className="w-full flex-1 min-h-[160px] max-h-[280px] bg-[#102419] rounded-lg border border-[#102419]/80 p-2 flex items-center justify-center relative overflow-hidden select-none">
-        <canvas
-          ref={canvasRef}
-          className="max-w-full max-h-full aspect-auto rounded select-none pointer-events-none object-contain transition-all duration-150"
-          style={{ 
-            imageRendering: 'pixelated',
-            width: '100%',
-            height: '100%',
-            objectFit: 'contain'
-          }}
-        />
+      <div className="w-full flex-1 min-h-[140px] max-h-[260px] bg-[#102419] rounded-lg border border-[#102419]/80 p-2 flex items-center justify-center relative overflow-hidden select-none">
+        <div className="w-full h-full flex items-center justify-center overflow-hidden">
+          <canvas
+            ref={canvasRef}
+            className="max-w-full max-h-full rounded select-none pointer-events-none transition-all duration-150"
+            style={{ 
+              imageRendering: 'pixelated',
+              width: 'auto',
+              height: 'auto',
+              maxWidth: '100%',
+              maxHeight: '100%',
+              objectFit: 'contain'
+            }}
+          />
+        </div>
 
         {/* Live status badge when playing */}
         {isPlaying && (

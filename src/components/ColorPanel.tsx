@@ -303,7 +303,7 @@ export const ColorPanel: React.FC<ColorPanelProps> = ({
 
   return (
     <div 
-      className="flex flex-col gap-2 p-2 rounded-xl border text-xs select-none w-full shadow-lg h-full overflow-y-auto scrollbar-thin"
+      className="flex flex-col gap-2 p-2 rounded-xl border text-xs select-none w-full shadow-lg h-full overflow-hidden shrink-0"
       style={{
         backgroundColor: BRAND_COLORS.surfaceSecondary,
         borderColor: BRAND_COLORS.border,
