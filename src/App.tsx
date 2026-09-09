@@ -58,6 +58,11 @@ import { LibraryService } from './utils/resources/LibraryService';
 import AssetLibraryModal from './components/AssetLibraryModal';
 import WindowSystemDialogs from './components/WindowSystemDialogs';
 import { OnePixelIcon, OnePixelLogo, OnePixelStartupAnimation } from './branding';
+import { MobileQuickBar } from './components/mobile/MobileQuickBar';
+import { MobileTimeline } from './components/mobile/MobileTimeline';
+import { MobileDrawer } from './components/mobile/MobileDrawer';
+import { TabletToolbar } from './components/tablet/TabletToolbar';
+import { TabletRightDock } from './components/tablet/TabletRightDock';
 import { 
   AppErrorBoundary, 
   HeaderBoundary, 
@@ -307,6 +312,7 @@ export default function App() {
     const saved = localStorage.getItem('onepixel_sidebar_visible');
     return saved !== null ? saved === 'true' : true;
   });
+  const [tabletDockOpen, setTabletDockOpen] = useState<boolean>(true);
   const [colorsVisible, setColorsVisible] = useState<boolean>(() => {
     const saved = localStorage.getItem('onepixel_colors_visible');
     return saved !== null ? saved === 'true' : true;
@@ -822,7 +828,8 @@ export default function App() {
   const [tourOpen, setTourOpen] = useState(false);
 
   // Responsive mobile panel overlay toggle
-  const [activeMobilePanel, setActiveMobilePanel] = useState<'tools' | 'layers' | 'color' | 'timeline' | null>(null);
+  const [activeMobilePanel, setActiveMobilePanel] = useState<'tools' | 'layers' | 'color' | 'options' | 'timeline' | null>(null);
+  const [isMobileTimelineOpen, setIsMobileTimelineOpen] = useState<boolean>(false);
 
   // Tool states for the newly requested advanced tools
   const [sprayDensity, setSprayDensity] = useState<number>(() => {
@@ -1295,7 +1302,14 @@ export default function App() {
     telemetry.logAction('TOOL_CHANGE', 'Selected tool changed', {
       tool: currentTool
     });
-  }, [currentTool]);
+
+    // Reset selection mask when switching away from selection tools
+    const isSelectionTool = ['rect_select', 'ellipse_select', 'lasso_select', 'wand'].includes(currentTool);
+    if (!isSelectionTool && activeSelection.active) {
+      setActiveSelection({ active: false, pixels: [] });
+      setSelectionCommand({ action: 'deselect', timestamp: Date.now() });
+    }
+  }, [currentTool, activeSelection.active]);
 
   useEffect(() => {
     if (selectedFrameId || selectedLayerId) {
@@ -3096,6 +3110,9 @@ export default function App() {
   }, []);
 
   const triggerSelection = (action: 'select_all' | 'deselect' | 'invert' | 'cut' | 'copy' | 'paste' | 'fill' | 'select_by_color') => {
+    if (action === 'deselect') {
+      setActiveSelection({ active: false, pixels: [] });
+    }
     setSelectionCommand({ action, timestamp: Date.now() });
   };
 
@@ -3872,7 +3889,9 @@ export default function App() {
       <div 
         ref={containerRef}
         className={`h-screen max-h-screen overflow-hidden text-slate-100 flex flex-col selection:bg-brand-sage/30 selection:text-white antialiased font-sans theme-${theme} interface-${preferences.interfaceColor || 'gold'} ui-${preferences.interfaceSize === 'sm' ? 'compact' : preferences.interfaceSize === 'lg' ? 'comfortable' : preferences.interfaceSize === 'xl' ? 'spacious' : 'normal'} colorblind-${preferences.colorBlindness || 'none'} ${preferences.highContrast ? 'high-contrast' : ''} ${
-          awe.isMobileLandscape
+          awe.isMobile
+            ? 'p-0 gap-0'
+            : awe.isMobileLandscape
             ? 'p-0.5 gap-0.5'
             : preferences.interfaceSize === 'sm' 
             ? 'p-0.5 gap-0.5' 
@@ -3908,7 +3927,22 @@ export default function App() {
           currentLayerId={selectedLayerId}
           currentTool={currentTool}
           currentColor={currentColor}
-          onMobilePanelToggle={(panel) => setActiveMobilePanel(activeMobilePanel === panel ? null : panel)}
+          activeMobilePanel={activeMobilePanel}
+          isMobileTimelineOpen={isMobileTimelineOpen}
+          onMobilePanelToggle={(panel) => {
+            if (panel === 'timeline') {
+              setIsMobileTimelineOpen(prev => {
+                const nextState = !prev;
+                if (nextState) {
+                  // Requisito estricto: El papel cebolla (onion skin) debe activarse automáticamente desde el momento exacto en que se enciende el panel de animación
+                  setOnionSkinSettings(s => ({ ...s, enabled: true }));
+                }
+                return nextState;
+              });
+            } else {
+              setActiveMobilePanel(activeMobilePanel === panel ? null : panel);
+            }
+          }}
           onUpdatePixels={handleUpdatePixels}
           onNewProject={handleNewProject}
           onSaveProject={handleSaveActiveProject}
@@ -4031,8 +4065,8 @@ export default function App() {
         />
       </HeaderBoundary>
 
-      {/* Tab bar representing open projects (completely hidden in mobile landscape to maximize canvas workspace) */}
-      {!awe.isMobileLandscape && (
+      {/* Tab bar representing open projects (completely hidden in mobile devices to maximize canvas workspace) */}
+      {!awe.isMobile && !awe.isMobileLandscape && (
         <div className="px-2 py-0.5 flex items-center gap-1 overflow-x-auto scrollbar-thin shrink-0" id="project-tabs-container">
           {tabs.map(tab => {
             const isActive = tab.id === activeTabId;
@@ -4065,7 +4099,7 @@ export default function App() {
                     e.stopPropagation();
                     requestCloseTab(tab.id);
                   }}
-                  className="absolute right-1.5 opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-100 transition"
+                  className={`absolute right-1.5 ${awe.isTablet ? 'opacity-80' : 'opacity-0 group-hover:opacity-100'} p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-100 transition touch-manipulation min-w-[24px] min-h-[24px] flex items-center justify-center`}
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -4107,7 +4141,7 @@ export default function App() {
           <div 
             className={`${awe.isMobile ? 'hidden' : 'block'} relative shrink-0 transition-all duration-300 ease-in-out`}
             style={{
-              width: sidebarVisible ? (awe.width < 1200 ? '172px' : '198px') : '0px',
+              width: sidebarVisible ? (awe.isTablet ? '58px' : (awe.width < 1200 ? '172px' : '198px')) : '0px',
               marginInlineEnd: sidebarVisible ? (awe.interfaceDensity === 'compact' ? '2px' : '4px') : '0px',
             }}
             id="left-toolbar-wrapper"
@@ -4122,55 +4156,71 @@ export default function App() {
                 pointerEvents: sidebarVisible ? 'auto' : 'none'
               }}
             >
-              <Toolbar 
-                currentTool={currentTool}
-                onChangeTool={setCurrentTool}
-                brushSize={brushSize}
-                onChangeBrushSize={setBrushSize}
-                symmetry={symmetry}
-                onChangeSymmetry={setSymmetry}
-                tiling={tiling}
-                onChangeTiling={setTiling}
-                sprayDensity={sprayDensity}
-                onChangeSprayDensity={setSprayDensity}
-                sprayRandomness={sprayRandomness}
-                onChangeSprayRandomness={setSprayRandomness}
-                sprayShape={sprayShape}
-                onChangeSprayShape={setSprayShape}
-                ditheringPattern={ditheringPattern}
-                onChangeDitheringPattern={setDitheringPattern}
-                cloneSource={cloneSource}
-                onChangeCloneSource={setCloneSource}
-                activeBrush={activeBrush}
-                onChangeActiveBrush={setActiveBrush}
-                pixelPerfect={pixelPerfect}
-                onChangePixelPerfect={setPixelPerfect}
-                bucketContiguous={bucketContiguous}
-                onChangeBucketContiguous={setBucketContiguous}
-                bucketRefer={bucketRefer}
-                onChangeBucketRefer={setBucketRefer}
-                language={preferences.language}
-                largeButtons={preferences.largeButtons}
-              />
+              {awe.isTablet ? (
+                <TabletToolbar 
+                  currentTool={currentTool}
+                  onChangeTool={setCurrentTool}
+                  brushSize={brushSize}
+                  onChangeBrushSize={setBrushSize}
+                  symmetry={symmetry}
+                  onChangeSymmetry={setSymmetry}
+                  tiling={tiling}
+                  onChangeTiling={setTiling}
+                  language={preferences.language}
+                />
+              ) : (
+                <>
+                  <Toolbar 
+                    currentTool={currentTool}
+                    onChangeTool={setCurrentTool}
+                    brushSize={brushSize}
+                    onChangeBrushSize={setBrushSize}
+                    symmetry={symmetry}
+                    onChangeSymmetry={setSymmetry}
+                    tiling={tiling}
+                    onChangeTiling={setTiling}
+                    sprayDensity={sprayDensity}
+                    onChangeSprayDensity={setSprayDensity}
+                    sprayRandomness={sprayRandomness}
+                    onChangeSprayRandomness={setSprayRandomness}
+                    sprayShape={sprayShape}
+                    onChangeSprayShape={setSprayShape}
+                    ditheringPattern={ditheringPattern}
+                    onChangeDitheringPattern={setDitheringPattern}
+                    cloneSource={cloneSource}
+                    onChangeCloneSource={setCloneSource}
+                    activeBrush={activeBrush}
+                    onChangeActiveBrush={setActiveBrush}
+                    pixelPerfect={pixelPerfect}
+                    onChangePixelPerfect={setPixelPerfect}
+                    bucketContiguous={bucketContiguous}
+                    onChangeBucketContiguous={setBucketContiguous}
+                    bucketRefer={bucketRefer}
+                    onChangeBucketRefer={setBucketRefer}
+                    language={preferences.language}
+                    largeButtons={preferences.largeButtons}
+                  />
 
-              <LayerManager 
-                layers={project?.layers || []}
-                selectedLayerId={selectedLayerId}
-                onSelectLayer={setSelectedLayerId}
-                onAddLayer={handleAddLayer}
-                onDeleteLayer={handleDeleteLayer}
-                onDuplicateLayer={handleDuplicateLayer}
-                onToggleVisible={handleToggleLayerVisible}
-                onToggleLocked={handleToggleLayerLocked}
-                onToggleStatic={handleToggleLayerStatic}
-                onChangeOpacity={handleChangeLayerOpacity}
-                onMoveLayer={handleMoveLayer}
-                onMergeDown={handleMergeDownLayer}
-                onReorderLayers={handleReorderLayers}
-                onRenameLayer={handleRenameLayer}
-                onChangeBlendMode={handleChangeLayerBlendMode}
-                language={preferences.language}
-              />
+                  <LayerManager 
+                    layers={project?.layers || []}
+                    selectedLayerId={selectedLayerId}
+                    onSelectLayer={setSelectedLayerId}
+                    onAddLayer={handleAddLayer}
+                    onDeleteLayer={handleDeleteLayer}
+                    onDuplicateLayer={handleDuplicateLayer}
+                    onToggleVisible={handleToggleLayerVisible}
+                    onToggleLocked={handleToggleLayerLocked}
+                    onToggleStatic={handleToggleLayerStatic}
+                    onChangeOpacity={handleChangeLayerOpacity}
+                    onMoveLayer={handleMoveLayer}
+                    onMergeDown={handleMergeDownLayer}
+                    onReorderLayers={handleReorderLayers}
+                    onRenameLayer={handleRenameLayer}
+                    onChangeBlendMode={handleChangeLayerBlendMode}
+                    language={preferences.language}
+                  />
+                </>
+              )}
             </div>
 
             {/* Toggle Handle Button */}
@@ -4203,11 +4253,11 @@ export default function App() {
 
         {/* Center Workspace (Canvas and Timeline - the LARGEST section) */}
         <div className={`flex-1 flex flex-col min-w-0 min-h-0 ${
-          awe.isMobileLandscape ? 'gap-0.5' : (awe.interfaceDensity === 'compact' ? 'gap-0.5' : 'gap-1')
+          awe.isMobile ? 'gap-0 p-0 m-0' : (awe.isMobileLandscape ? 'gap-0.5' : (awe.interfaceDensity === 'compact' ? 'gap-0.5' : 'gap-1'))
         }`}>
           
-          {/* Options Bar (hidden in mobile landscape to maximize canvas workspace; options are accessible via Tools panel) */}
-          {!awe.isMobileLandscape && (
+          {/* Options Bar (hidden in mobile devices to maximize canvas workspace; options are accessible via Tools panel) */}
+          {!awe.isMobile && !awe.isMobileLandscape && (
             <OptionBar
               currentTool={currentTool}
               language={preferences.language || 'es'}
@@ -4260,7 +4310,7 @@ export default function App() {
           )}
           
           {/* Main drawing canvas area (centered, most highlighted component) */}
-          <div className={`flex-1 min-h-0 w-full flex flex-col ${awe.isMobileLandscape ? 'pb-14' : ''}`}>
+          <div className={`flex-1 min-h-0 w-full flex flex-col ${awe.isMobile ? (isMobileTimelineOpen ? 'pb-48' : 'pb-28') : ''}`}>
             <CanvasBoundary>
               {(!project || !project.frames || project.frames.length === 0 || tabs.length === 0) ? (
                 <EmptyWorkspace 
@@ -4334,63 +4384,116 @@ export default function App() {
 
         {/* Right Column (Preview Panel + Color Selector) - matches canvas height, non-collapsible */}
         <SidebarBoundary>
-          <div 
-            className={`${awe.isMobile ? 'hidden' : 'flex'} flex-col shrink-0 h-full select-none gap-1.5`}
-            style={{
-              width: awe.width < 1200 ? '240px' : '264px',
-              marginInlineStart: awe.interfaceDensity === 'compact' ? '2px' : '4px',
-            }}
-            id="right-column-container"
-          >
-            {/* Always-visible Preview Panel beside canvas */}
-            <div className="w-full shrink-0" id="preview-panel-dock">
-              <PreviewPanel 
-                project={project}
-                currentFrameId={selectedFrameId}
-                isPlaying={isPlaying}
-                onTogglePlay={() => setIsPlaying(!isPlaying)}
-                language={preferences.language}
-              />
-            </div>
-
-            {/* Fixed, full vertical stretch Color Panel (no collapse button, matching canvas height, scrollable) */}
+          {awe.isTablet ? (
+            <TabletRightDock
+              project={project}
+              selectedFrameId={selectedFrameId}
+              selectedLayerId={selectedLayerId}
+              onSelectLayer={setSelectedLayerId}
+              onAddLayer={handleAddLayer}
+              onDeleteLayer={handleDeleteLayer}
+              onDuplicateLayer={handleDuplicateLayer}
+              onToggleVisible={handleToggleLayerVisible}
+              onToggleLocked={handleToggleLayerLocked}
+              onToggleStatic={handleToggleLayerStatic}
+              onChangeOpacity={handleChangeLayerOpacity}
+              onMoveLayer={handleMoveLayer}
+              onMergeDown={handleMergeDownLayer}
+              onReorderLayers={handleReorderLayers}
+              onRenameLayer={handleRenameLayer}
+              onChangeBlendMode={handleChangeLayerBlendMode}
+              currentColor={currentColor}
+              secondaryColor={secondaryColor}
+              activeColorSlot={activeColorSlot}
+              onChangeColor={handleColorChange}
+              onChangeSecondaryColor={setSecondaryColor}
+              onSwapColors={handleSwapColors}
+              onResetDefaultColors={handleResetDefaultColors}
+              onChangeActiveColorSlot={setActiveColorSlot}
+              brushOpacity={brushOpacity}
+              onChangeBrushOpacity={setBrushOpacity}
+              documentColors={documentColors}
+              customPalette={customPalette}
+              onAddToCustomPalette={handleAddToCustomPalette}
+              onClearCustomPalette={handleClearCustomPalette}
+              onRemoveFromCustomPalette={handleRemoveFromCustomPalette}
+              onInvertPalette={handleInvertPalette}
+              onOpenLibrary={handleOpenLibrary}
+              recentColors={recentColors}
+              onClearRecentColors={handleClearRecentColors}
+              onSaveRecentAsPalette={handleSaveRecentAsPalette}
+              libraryPalettes={libraryPalettes}
+              onLoadPalette={(colors) => {
+                setCustomPalette(colors);
+                localStorage.setItem('pixel_art_custom_swatches', JSON.stringify(colors));
+                if (colors.length > 0) setCurrentColor(colors[0]);
+              }}
+              showToast={showToast}
+              isPlaying={isPlaying}
+              onTogglePlay={() => setIsPlaying(!isPlaying)}
+              language={preferences.language}
+              isOpen={tabletDockOpen}
+              onToggleOpen={() => setTabletDockOpen(prev => !prev)}
+            />
+          ) : (
             <div 
-              className="flex-1 min-h-0 w-full flex flex-col overflow-hidden"
-              id="right-column-wrapper"
+              className={`${awe.isMobile ? 'hidden' : 'flex'} flex-col shrink-0 h-full select-none gap-1.5`}
+              style={{
+                width: awe.width < 1200 ? '240px' : '264px',
+                marginInlineStart: awe.interfaceDensity === 'compact' ? '2px' : '4px',
+              }}
+              id="right-column-container"
             >
-              <ColorPanel 
-                currentColor={currentColor}
-                secondaryColor={secondaryColor}
-                activeColorSlot={activeColorSlot}
-                onChangeColor={handleColorChange}
-                onChangeSecondaryColor={setSecondaryColor}
-                onSwapColors={handleSwapColors}
-                onResetDefaultColors={handleResetDefaultColors}
-                onChangeActiveColorSlot={setActiveColorSlot}
-                opacity={brushOpacity}
-                onChangeOpacity={setBrushOpacity}
-                documentColors={documentColors}
-                customPalette={customPalette}
-                onAddToCustomPalette={handleAddToCustomPalette}
-                onClearCustomPalette={handleClearCustomPalette}
-                onRemoveFromCustomPalette={handleRemoveFromCustomPalette}
-                onInvertPalette={handleInvertPalette}
-                onSavePaletteToLibrary={handleOpenLibrary}
-                onOpenLibrary={handleOpenLibrary}
-                recentColors={recentColors}
-                onClearRecentColors={handleClearRecentColors}
-                onSaveRecentAsPalette={handleSaveRecentAsPalette}
-                language={preferences.language}
-                libraryPalettes={libraryPalettes}
-                onLoadPalette={(colors) => {
-                  setCustomPalette(colors);
-                  localStorage.setItem('pixel_art_custom_swatches', JSON.stringify(colors));
-                  if (colors.length > 0) setCurrentColor(colors[0]);
-                }}
-                showToast={showToast}
-              />
+              {/* Always-visible Preview Panel beside canvas */}
+              <div className="w-full shrink-0" id="preview-panel-dock">
+                <PreviewPanel 
+                  project={project}
+                  currentFrameId={selectedFrameId}
+                  isPlaying={isPlaying}
+                  onTogglePlay={() => setIsPlaying(!isPlaying)}
+                  language={preferences.language}
+                />
+              </div>
+
+              {/* Fixed, full vertical stretch Color Panel (no collapse button, matching canvas height, scrollable) */}
+              <div 
+                className="flex-1 min-h-0 w-full flex flex-col overflow-hidden"
+                id="right-column-wrapper"
+              >
+                <ColorPanel 
+                  currentColor={currentColor}
+                  secondaryColor={secondaryColor}
+                  activeColorSlot={activeColorSlot}
+                  onChangeColor={handleColorChange}
+                  onChangeSecondaryColor={setSecondaryColor}
+                  onSwapColors={handleSwapColors}
+                  onResetDefaultColors={handleResetDefaultColors}
+                  onChangeActiveColorSlot={setActiveColorSlot}
+                  opacity={brushOpacity}
+                  onChangeOpacity={setBrushOpacity}
+                  documentColors={documentColors}
+                  customPalette={customPalette}
+                  onAddToCustomPalette={handleAddToCustomPalette}
+                  onClearCustomPalette={handleClearCustomPalette}
+                  onRemoveFromCustomPalette={handleRemoveFromCustomPalette}
+                  onInvertPalette={handleInvertPalette}
+                  onSavePaletteToLibrary={handleOpenLibrary}
+                  onOpenLibrary={handleOpenLibrary}
+                  recentColors={recentColors}
+                  onClearRecentColors={handleClearRecentColors}
+                  onSaveRecentAsPalette={handleSaveRecentAsPalette}
+                  language={preferences.language}
+                  libraryPalettes={libraryPalettes}
+                  onLoadPalette={(colors) => {
+                    setCustomPalette(colors);
+                    localStorage.setItem('pixel_art_custom_swatches', JSON.stringify(colors));
+                    if (colors.length > 0) setCurrentColor(colors[0]);
+                  }}
+                  showToast={showToast}
+                />
+              </div>
             </div>
-          </div>
+          )}
         </SidebarBoundary>
 
       </div>
@@ -4473,284 +4576,113 @@ export default function App() {
         </div>
       </TimelineBoundary>
 
-      {/* --- MOBILE-ONLY PANEL TOGGLE DOCK --- */}
+      {/* --- MOBILE BOTTOM DOCK (PALETTE, HISTORY & INTEGRATED TIMELINE) --- */}
       {awe.isMobile && (
-        <div className={`fixed left-1/2 -translate-x-1/2 bg-[#102419]/95 border border-[#102419] shadow-2xl flex items-center z-40 backdrop-blur-md transition-all duration-150 ${
-          awe.isMobileLandscape
-            ? 'bottom-2 px-3 py-1.5 rounded-full gap-3 justify-center'
-            : 'bottom-4 px-3 py-1.5 rounded-2xl gap-2 sm:gap-4 w-[92%] max-w-sm justify-around'
-        }`} id="mobile-navigation-dock">
-          {/* 1. Herramientas */}
-          <button
-            onClick={() => setActiveMobilePanel(activeMobilePanel === 'tools' ? null : 'tools')}
-            className={`flex items-center justify-center transition-all duration-150 active:scale-95 touch-manipulation cursor-pointer ${
-              awe.isMobileLandscape 
-                ? 'w-9 h-9 rounded-full' 
-                : 'flex-col gap-0.5 min-w-[56px] min-h-[44px] p-1.5 rounded-xl'
-            } ${
-              activeMobilePanel === 'tools' 
-                ? (awe.isMobileLandscape ? 'bg-[#C8A96A] text-[#102419] font-bold shadow-md' : 'bg-[#102419] text-[#C8A96A] font-bold shadow-inner')
-                : 'text-slate-300 hover:text-white hover:bg-white/10'
-            }`}
-            title={translate('toolbar.title', preferences.language) || 'Herramientas'}
-            id="mobile-btn-tools"
-          >
-            <PenTool className="w-5 h-5" />
-            {!awe.isMobileLandscape && (
-              <span className="text-[9px] tracking-tight">{translate('toolbar.title', preferences.language) || 'Herramientas'}</span>
-            )}
-          </button>
-
-          {/* 2. Capas */}
-          <button
-            onClick={() => setActiveMobilePanel(activeMobilePanel === 'layers' ? null : 'layers')}
-            className={`flex items-center justify-center transition-all duration-150 active:scale-95 touch-manipulation cursor-pointer ${
-              awe.isMobileLandscape 
-                ? 'w-9 h-9 rounded-full' 
-                : 'flex-col gap-0.5 min-w-[56px] min-h-[44px] p-1.5 rounded-xl'
-            } ${
-              activeMobilePanel === 'layers' 
-                ? (awe.isMobileLandscape ? 'bg-[#C8A96A] text-[#102419] font-bold shadow-md' : 'bg-[#102419] text-[#C8A96A] font-bold shadow-inner')
-                : 'text-slate-300 hover:text-white hover:bg-white/10'
-            }`}
-            title={translate('layers.title', preferences.language) || 'Capas'}
-            id="mobile-btn-layers"
-          >
-            <Layers className="w-5 h-5" />
-            {!awe.isMobileLandscape && (
-              <span className="text-[9px] tracking-tight">{translate('layers.title', preferences.language) || 'Capas'}</span>
-            )}
-          </button>
-
-          {/* 3. Color */}
-          <button
-            onClick={() => setActiveMobilePanel(activeMobilePanel === 'color' ? null : 'color')}
-            className={`flex items-center justify-center transition-all duration-150 active:scale-95 touch-manipulation cursor-pointer ${
-              awe.isMobileLandscape 
-                ? 'w-9 h-9 rounded-full' 
-                : 'flex-col gap-0.5 min-w-[56px] min-h-[44px] p-1.5 rounded-xl'
-            } ${
-              activeMobilePanel === 'color' 
-                ? (awe.isMobileLandscape ? 'bg-[#C8A96A] text-[#102419] font-bold shadow-md' : 'bg-[#102419] text-[#C8A96A] font-bold shadow-inner')
-                : 'text-slate-300 hover:text-white hover:bg-white/10'
-            }`}
-            title={translate('colors.title', preferences.language) || 'Color'}
-            id="mobile-btn-color"
-          >
-            <Palette className="w-5 h-5" />
-            {!awe.isMobileLandscape && (
-              <span className="text-[9px] tracking-tight">{translate('colors.title', preferences.language) || 'Color'}</span>
-            )}
-          </button>
-
-          {/* 4. Animación */}
-          <button
-            onClick={() => setActiveMobilePanel(activeMobilePanel === 'timeline' ? null : 'timeline')}
-            className={`flex items-center justify-center transition-all duration-150 active:scale-95 touch-manipulation cursor-pointer ${
-              awe.isMobileLandscape 
-                ? 'w-9 h-9 rounded-full' 
-                : 'flex-col gap-0.5 min-w-[56px] min-h-[44px] p-1.5 rounded-xl'
-            } ${
-              activeMobilePanel === 'timeline' 
-                ? (awe.isMobileLandscape ? 'bg-[#C8A96A] text-[#102419] font-bold shadow-md' : 'bg-[#102419] text-[#C8A96A] font-bold shadow-inner')
-                : 'text-slate-300 hover:text-white hover:bg-white/10'
-            }`}
-            title={translate('timeline.title', preferences.language) || 'Animación'}
-            id="mobile-btn-timeline"
-          >
-            <Film className="w-5 h-5" />
-            {!awe.isMobileLandscape && (
-              <span className="text-[9px] tracking-tight">{translate('timeline.title', preferences.language) || 'Animación'}</span>
-            )}
-          </button>
-        </div>
+        <MobileQuickBar
+          currentTool={currentTool}
+          onChangeTool={setCurrentTool}
+          currentColor={currentColor}
+          secondaryColor={secondaryColor}
+          onChangeColor={handleColorChange}
+          paletteColors={customPalette}
+          recentColors={recentColors}
+          onOpenPanel={setActiveMobilePanel}
+          activePanel={activeMobilePanel}
+          onToggleTimeline={() => {
+            const nextState = !isMobileTimelineOpen;
+            setIsMobileTimelineOpen(nextState);
+            if (nextState) {
+              setOnionSkinSettings(prev => ({ ...prev, enabled: true }));
+            }
+          }}
+          isTimelineOpen={isMobileTimelineOpen}
+          isLandscape={awe.isMobileLandscape}
+          language={preferences.language}
+          project={project}
+          selectedFrameId={selectedFrameId}
+          onSelectFrame={setSelectedFrameId}
+          onAddFrame={handleAddFrame}
+          isPlaying={isPlaying}
+          onTogglePlay={handleTogglePlay}
+          fps={project?.fps || 12}
+          onChangeFps={handleChangeFps}
+          onionSkinEnabled={onionSkinSettings.enabled}
+          onToggleOnionSkin={handleToggleOnionSkin}
+          loopEnabled={loopEnabled}
+          onToggleLoop={handleToggleLoop}
+        />
       )}
 
-      {/* --- MOBILE MODAL PANEL DRAWERS --- */}
-      {awe.isMobile && activeMobilePanel && (
-        <div 
-          className="fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 animate-fade-in"
-          onClick={() => setActiveMobilePanel(null)}
-          id="mobile-panel-backdrop"
-        >
-          <motion.div
-            initial={{ scale: 0.95, opacity: 0, y: 15 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.95, opacity: 0, y: 15 }}
-            onClick={(e) => e.stopPropagation()}
-            className={`bg-[#102419] border border-[#102419] rounded-2xl w-[94vw] overflow-y-auto shadow-2xl relative flex flex-col text-slate-200 ${
-              awe.isMobileLandscape 
-                ? 'p-2.5 max-h-[92vh] max-w-xl gap-2' 
-                : (activeMobilePanel === 'timeline' ? 'p-3 sm:p-4 max-w-2xl max-h-[82vh] gap-3' : 'p-3 sm:p-4 max-w-md max-h-[82vh] gap-3')
-            }`}
-            id="mobile-panel-drawer"
-          >
-            {/* Header of mobile drawer */}
-            <div className="flex items-center justify-between border-b border-[#102419] pb-2">
-              <h4 className="text-xs font-black tracking-widest text-[#C8A96A] uppercase flex items-center gap-2">
-                {activeMobilePanel === 'tools' && <><PenTool className="w-4 h-4 text-[#C8A96A]" /> {translate('toolbar.title', preferences.language) || 'Herramientas'}</>}
-                {activeMobilePanel === 'layers' && <><Layers className="w-4 h-4 text-[#C8A96A]" /> {translate('layers.title', preferences.language) || 'Capas'}</>}
-                {activeMobilePanel === 'color' && <><Palette className="w-4 h-4 text-[#C8A96A]" /> {translate('colors.title', preferences.language) || 'Color'}</>}
-                {activeMobilePanel === 'timeline' && <><Film className="w-4 h-4 text-[#C8A96A]" /> {translate('timeline.title', preferences.language) || 'Animación'}</>}
-              </h4>
-              <button 
-                onClick={() => setActiveMobilePanel(null)}
-                className="p-1.5 rounded-lg bg-[#102419]/60 hover:bg-[#102419] text-slate-300 hover:text-white transition-colors active:scale-95 min-w-[36px] min-h-[36px] flex items-center justify-center cursor-pointer"
-                title={translate('layout.closePanel', preferences.language)}
-                id="close-mobile-panel"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Content of mobile drawer */}
-            <div className="flex-1 overflow-y-auto pr-1">
-              {activeMobilePanel === 'tools' && (
-                <div className="flex flex-col gap-3 pb-2">
-                  <Toolbar 
-                    currentTool={currentTool}
-                    onChangeTool={(t) => {
-                      setCurrentTool(t);
-                    }}
-                    brushSize={brushSize}
-                    onChangeBrushSize={setBrushSize}
-                    symmetry={symmetry}
-                    onChangeSymmetry={setSymmetry}
-                    tiling={tiling}
-                    onChangeTiling={setTiling}
-                    sprayDensity={sprayDensity}
-                    onChangeSprayDensity={setSprayDensity}
-                    sprayRandomness={sprayRandomness}
-                    onChangeSprayRandomness={setSprayRandomness}
-                    sprayShape={sprayShape}
-                    onChangeSprayShape={setSprayShape}
-                    ditheringPattern={ditheringPattern}
-                    onChangeDitheringPattern={setDitheringPattern}
-                    cloneSource={cloneSource}
-                    onChangeCloneSource={setCloneSource}
-                    activeBrush={activeBrush}
-                    onChangeActiveBrush={setActiveBrush}
-                    pixelPerfect={pixelPerfect}
-                    onChangePixelPerfect={setPixelPerfect}
-                    bucketContiguous={bucketContiguous}
-                    onChangeBucketContiguous={setBucketContiguous}
-                    bucketRefer={bucketRefer}
-                    onChangeBucketRefer={setBucketRefer}
-                    language={preferences.language}
-                    largeButtons={preferences.largeButtons}
-                  />
-                </div>
-              )}
-
-              {activeMobilePanel === 'layers' && (
-                <div className="flex flex-col gap-3 pb-2">
-                  <LayerManager 
-                    layers={project?.layers || []}
-                    selectedLayerId={selectedLayerId}
-                    onSelectLayer={setSelectedLayerId}
-                    onAddLayer={handleAddLayer}
-                    onDeleteLayer={handleDeleteLayer}
-                    onDuplicateLayer={handleDuplicateLayer}
-                    onToggleVisible={handleToggleLayerVisible}
-                    onToggleLocked={handleToggleLayerLocked}
-                    onToggleStatic={handleToggleLayerStatic}
-                    onChangeOpacity={handleChangeLayerOpacity}
-                    onMoveLayer={handleMoveLayer}
-                    onMergeDown={handleMergeDownLayer}
-                    onReorderLayers={handleReorderLayers}
-                    onRenameLayer={handleRenameLayer}
-                    onChangeBlendMode={handleChangeLayerBlendMode}
-                    language={preferences.language}
-                  />
-                </div>
-              )}
-
-              {activeMobilePanel === 'color' && (
-                <div className="pb-2">
-                  <ColorPanel 
-                    currentColor={currentColor}
-                    secondaryColor={secondaryColor}
-                    activeColorSlot={activeColorSlot}
-                    onChangeColor={handleColorChange}
-                    onChangeSecondaryColor={setSecondaryColor}
-                    onSwapColors={handleSwapColors}
-                    onResetDefaultColors={handleResetDefaultColors}
-                    onChangeActiveColorSlot={setActiveColorSlot}
-                    opacity={brushOpacity}
-                    onChangeOpacity={setBrushOpacity}
-                    documentColors={documentColors}
-                    customPalette={customPalette}
-                    onAddToCustomPalette={handleAddToCustomPalette}
-                    onClearCustomPalette={handleClearCustomPalette}
-                    onRemoveFromCustomPalette={handleRemoveFromCustomPalette}
-                    onInvertPalette={handleInvertPalette}
-                    onSavePaletteToLibrary={handleOpenLibrary}
-                    onOpenLibrary={handleOpenLibrary}
-                    recentColors={recentColors}
-                    onClearRecentColors={handleClearRecentColors}
-                    onSaveRecentAsPalette={handleSaveRecentAsPalette}
-                    language={preferences.language}
-                    libraryPalettes={libraryPalettes}
-                    onLoadPalette={(colors) => {
-                      setCustomPalette(colors);
-                      localStorage.setItem('pixel_art_custom_swatches', JSON.stringify(colors));
-                      if (colors.length > 0) setCurrentColor(colors[0]);
-                    }}
-                    showToast={showToast}
-                  />
-                </div>
-              )}
-
-              {activeMobilePanel === 'timeline' && (
-                <div className="pb-2 overflow-x-auto max-w-full">
-                  <Timeline 
-                    frames={project?.frames || []}
-                    selectedFrameId={selectedFrameId}
-                    onSelectFrame={setSelectedFrameId}
-                    selection={frameSelection}
-                    onSelectionChange={setFrameSelection}
-                    onAddFrame={handleAddFrame}
-                    onDeleteFrame={handleDeleteFrame}
-                    onDuplicateFrame={handleDuplicateFrame}
-                    isPlaying={isPlaying}
-                    onTogglePlay={handleTogglePlay}
-                    onStop={handleStopAnimation}
-                    fps={project?.fps || 12}
-                    onChangeFps={handleChangeFps}
-                    onionSkinEnabled={onionSkinEnabled}
-                    onToggleOnionSkin={handleToggleOnionSkin}
-                    onionSkinOpacity={onionSkinOpacity}
-                    onChangeOnionSkinOpacity={handleSetOnionSkinOpacity}
-                    onionSkinSettings={onionSkinSettings}
-                    onUpdateOnionSkinSettings={handleUpdateOnionSkinSettings}
-                    loopEnabled={loopEnabled}
-                    onToggleLoop={handleToggleLoop}
-                    layers={project?.layers || []}
-                    selectedLayerId={selectedLayerId}
-                    onSelectLayer={setSelectedLayerId}
-                    onToggleVisible={handleToggleLayerVisible}
-                    onToggleLocked={handleToggleLayerLocked}
-                    onToggleStatic={handleToggleLayerStatic}
-                    pixels={project?.pixels || {}}
-                    onReorderFrames={handleReorderFrames}
-                    onMoveFrameLeft={handleMoveFrameLeft}
-                    onMoveFrameRight={handleMoveFrameRight}
-                    playbackMode={playbackMode}
-                    onChangePlaybackMode={setPlaybackMode}
-                    onOpenExport={handleOpenExportDialog}
-                    animationTags={project?.animationTags || []}
-                    selectedTagId={selectedTagId}
-                    onSelectTag={setSelectedTagId}
-                    onAddTag={handleAddTag}
-                    onUpdateTag={handleUpdateTag}
-                    onDeleteTag={handleDeleteTag}
-                    language={preferences.language}
-                  />
-                </div>
-              )}
-            </div>
-          </motion.div>
-        </div>
+      {/* --- MOBILE MODAL PANEL DRAWER --- */}
+      {Boolean(activeMobilePanel) && (
+        <MobileDrawer
+          activePanel={activeMobilePanel}
+          onClose={() => setActiveMobilePanel(null)}
+          onSelectPanel={setActiveMobilePanel}
+          currentTool={currentTool}
+          onChangeTool={setCurrentTool}
+          brushSize={brushSize}
+          onChangeBrushSize={setBrushSize}
+          symmetry={symmetry}
+          onChangeSymmetry={setSymmetry}
+          tiling={tiling}
+          onChangeTiling={setTiling}
+          pixelPerfect={pixelPerfect}
+          onChangePixelPerfect={setPixelPerfect}
+          layers={project?.layers || []}
+          selectedLayerId={selectedLayerId}
+          onSelectLayer={setSelectedLayerId}
+          onAddLayer={handleAddLayer}
+          onDeleteLayer={handleDeleteLayer}
+          onDuplicateLayer={handleDuplicateLayer}
+          onToggleVisible={handleToggleLayerVisible}
+          onToggleLocked={handleToggleLayerLocked}
+          onToggleStatic={handleToggleLayerStatic}
+          onChangeOpacity={handleChangeLayerOpacity}
+          onMoveLayer={handleMoveLayer}
+          onMergeDown={handleMergeDownLayer}
+          onReorderLayers={handleReorderLayers}
+          onRenameLayer={handleRenameLayer}
+          onChangeBlendMode={handleChangeLayerBlendMode}
+          currentColor={currentColor}
+          secondaryColor={secondaryColor}
+          activeColorSlot={activeColorSlot}
+          onChangeColor={handleColorChange}
+          onChangeSecondaryColor={setSecondaryColor}
+          onSwapColors={handleSwapColors}
+          onResetDefaultColors={handleResetDefaultColors}
+          onChangeActiveColorSlot={setActiveColorSlot}
+          brushOpacity={brushOpacity}
+          onChangeBrushOpacity={setBrushOpacity}
+          documentColors={documentColors}
+          customPalette={customPalette}
+          onAddToCustomPalette={handleAddToCustomPalette}
+          onClearCustomPalette={handleClearCustomPalette}
+          onRemoveFromCustomPalette={(colorOrIndex) => {
+            if (typeof colorOrIndex === 'number') {
+              if (customPalette[colorOrIndex]) {
+                handleRemoveFromCustomPalette(customPalette[colorOrIndex]);
+              }
+            } else {
+              handleRemoveFromCustomPalette(colorOrIndex);
+            }
+          }}
+          onInvertPalette={handleInvertPalette}
+          onOpenLibrary={handleOpenLibrary}
+          recentColors={recentColors}
+          onClearRecentColors={handleClearRecentColors}
+          onSaveRecentAsPalette={handleSaveRecentAsPalette}
+          libraryPalettes={libraryPalettes}
+          onLoadPalette={(nameOrColors, colors) => {
+            const paletteColors: string[] = Array.isArray(nameOrColors) ? nameOrColors : (colors || []);
+            setCustomPalette(paletteColors);
+            localStorage.setItem('pixel_art_custom_swatches', JSON.stringify(paletteColors));
+            if (paletteColors.length > 0) setCurrentColor(paletteColors[0]);
+          }}
+          showToast={showToast}
+          language={preferences.language}
+          isLandscape={awe.isMobileLandscape || (awe.orientation === 'landscape' && awe.height <= 600)}
+        />
       )}
 
       {/* --- FLOATING OVERLAY MODALS & DIALOGS --- */}

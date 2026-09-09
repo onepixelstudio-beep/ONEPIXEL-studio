@@ -1786,3 +1786,28 @@ button,
   letter-spacing: -0.005em !important;
   line-height: 1.4 !important;
 }
+
+/* ==========================================================================
+   SCROLLBAR UTILITIES
+   ========================================================================== */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ==========================================================================
+   STRICT MOBILE HORIZONTAL OVERFLOW PREVENTION
+   ========================================================================== */
+html, body, #root {
+  max-width: 100vw !important;
+  overflow-x: hidden !important;
+  box-sizing: border-box !important;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+

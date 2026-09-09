@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useMemo } from 'react';
+import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import { ZoomIn, ZoomOut, Maximize2, Move, RefreshCw, Copy, Check, X, FlipHorizontal, FlipVertical, RotateCw, Grid, Sliders, Repeat, Settings2, Eye, EyeOff, Lock, Unlock, RotateCcw, Trash2, Image as ImageIcon } from 'lucide-react';
 import { 
   PixelProject, ToolType, SymmetrySettings, 
@@ -176,6 +176,7 @@ const CanvasArea = React.memo(function CanvasArea({
   }
 
   const currentFractionalCoordRef = useRef<{ x: number; y: number } | null>(null);
+  const drawCanvasRef = useRef<() => void>(() => {});
   const brushOffsetsCacheRef = useRef<{ dx: number; dy: number }[]>(calculateBrushOffsets(brushSize, activeBrush));
 
   useEffect(() => {
@@ -471,68 +472,6 @@ const CanvasArea = React.memo(function CanvasArea({
   const dragSelectionInitialMaskRef = useRef<ISelectionMask | null>(null);
   const dragSelectionModeRef = useRef<SelectionMode>('replace');
 
-  const syncSelectionFromEngine = () => {
-    const engine = selectionEngineRef.current;
-    if (!engine || engine.mask.isEmpty()) {
-      setSelection({ active: false, pixels: [] });
-    } else {
-      const pixels = new Array(project.width * project.height);
-      for (let y = 0; y < project.height; y++) {
-        for (let x = 0; x < project.width; x++) {
-          pixels[y * project.width + x] = engine.mask.getValue(x, y) > 0;
-        }
-      }
-      setSelection({ active: true, pixels });
-    }
-  };
-
-  const getSelectionModeFromEvent = (e: React.MouseEvent | MouseEvent): SelectionMode => {
-    if (e.shiftKey && e.altKey) return 'intersect';
-    if (e.shiftKey) return 'add';
-    if (e.altKey) return 'subtract';
-    return 'replace';
-  };
-
-  const applyGeometricSelectionPreview = (
-    start: { x: number; y: number },
-    current: { x: number; y: number },
-    tool: 'rect_select' | 'ellipse_select',
-    mode: SelectionMode
-  ) => {
-    const engine = selectionEngineRef.current;
-    if (!engine) return;
-    const initialMask = dragSelectionInitialMaskRef.current;
-
-    if (initialMask) {
-      for (let y = 0; y < engine.height; y++) {
-        for (let x = 0; x < engine.width; x++) {
-          engine.mask.setValue(x, y, initialMask.getValue(x, y));
-        }
-      }
-    } else {
-      engine.clear();
-    }
-
-    const x1 = Math.min(start.x, current.x);
-    const x2 = Math.max(start.x, current.x);
-    const y1 = Math.min(start.y, current.y);
-    const y2 = Math.max(start.y, current.y);
-    const w = x2 - x1 + 1;
-    const h = y2 - y1 + 1;
-
-    if (tool === 'rect_select') {
-      engine.selectRect(x1, y1, w, h, mode);
-    } else if (tool === 'ellipse_select') {
-      const cx = x1 + w / 2;
-      const cy = y1 + h / 2;
-      const rx = w / 2;
-      const ry = h / 2;
-      engine.selectEllipse(cx, cy, rx, ry, mode);
-    }
-
-    syncSelectionFromEngine();
-  };
-
   useEffect(() => {
     telemetry.logAction('SELECTION_MASK_STATE', selection.active ? 'Selection mask active/created' : 'Selection mask cleared/destroyed', {
       active: selection.active,
@@ -705,6 +644,7 @@ const CanvasArea = React.memo(function CanvasArea({
   const [dragMoveStartOffset, setDragMoveStartOffset] = useState<{ x: number; y: number } | null>(null);
   const [dragDuplicateStartOffset, setDragDuplicateStartOffset] = useState<{ x: number; y: number } | null>(null);
   const [isMoveMode, setIsMoveMode] = useState<boolean>(false);
+  const [isHoveringSelection, setIsHoveringSelection] = useState<boolean>(false);
 
   // --- Transform Libre State ---
   const [transformState, setTransformState] = useState<TransformState>({
@@ -893,33 +833,356 @@ const CanvasArea = React.memo(function CanvasArea({
     showToast?.(translate('canvas.transformCancelled', language), 'info');
   };
 
-  useEffect(() => {
-    if (!transformState.isActive) return;
+  // --- SELECTION OPERATIONS & STATE LIFECYCLE ---
+  const startMoveSelection = (initialDx = 0, initialDy = 0) => {
+    if (!selection.active) return;
+    const framePixels = project.pixels[currentFrameId];
+    const layerPixels = framePixels?.[currentLayerId];
+    if (!layerPixels) return;
 
+    const layerMeta = project.layers.find(l => l.id === currentLayerId);
+    if (layerMeta?.locked || !layerMeta?.visible) {
+      showToast?.(translate('canvas.cannotMoveLockedOrHidden', language), 'error');
+      return;
+    }
+
+    // Ensure selection mask is valid
+    let mask = selection.pixels;
+    if ((!mask || mask.length === 0) && selectionEngineRef.current) {
+      const raw = selectionEngineRef.current.mask.getRawBuffer();
+      mask = Array.from(raw, val => val > 0);
+    }
+    if (!mask || mask.length === 0) return;
+
+    // Save history snapshot of original state before we clear selected pixels
+    onStartHistoryAction?.();
+
+    // Erase selected pixels from the current canvas layer
+    const updated = { ...project.pixels };
+    const nextPixels = [...layerPixels];
+    for (let i = 0; i < mask.length; i++) {
+      if (mask[i]) {
+        nextPixels[i] = '';
+      }
+    }
+    updated[currentFrameId] = {
+      ...updated[currentFrameId],
+      [currentLayerId]: nextPixels
+    };
+    onUpdatePixels(updated, false);
+
+    setIsMoveMode(true);
+    setDuplicateActive(true);
+    setDuplicatePixels([...layerPixels]); // This contains the original pixels before erasing
+    setDuplicateMask([...mask]);
+    setDuplicateOffsetX(initialDx);
+    setDuplicateOffsetY(initialDy);
+  };
+
+  const acceptDuplication = () => {
+    if (!duplicateActive) return;
+    const framePixels = project.pixels[currentFrameId];
+    const layerPixels = framePixels?.[currentLayerId];
+    if (!layerPixels) return;
+
+    const updated = { ...project.pixels };
+    const nextPixels = [...layerPixels];
+    const nextSelectionPixels = new Array(project.width * project.height).fill(false);
+
+    // Stamping the duplicated/moved pixels onto the active layer
+    for (let y = 0; y < project.height; y++) {
+      for (let x = 0; x < project.width; x++) {
+        const idx = y * project.width + x;
+        if (duplicateMask[idx]) {
+          const nx = x + duplicateOffsetX;
+          const ny = y + duplicateOffsetY;
+          if (nx >= 0 && nx < project.width && ny >= 0 && ny < project.height) {
+            const targetIdx = ny * project.width + nx;
+            nextSelectionPixels[targetIdx] = true;
+            const color = duplicatePixels[idx];
+            if (color) {
+              nextPixels[targetIdx] = color;
+            }
+          }
+        }
+      }
+    }
+
+    updated[currentFrameId] = {
+      ...updated[currentFrameId],
+      [currentLayerId]: nextPixels
+    };
+    onUpdatePixels(updated, false);
+
+    if (selectionEngineRef.current) {
+      selectionEngineRef.current.setFromBooleanMask(nextSelectionPixels, 'replace');
+    }
+    const nextState: SelectionState = { active: true, pixels: nextSelectionPixels };
+    setSelection(nextState);
+    onSelectionChange?.(nextState);
+
+    setDuplicateActive(false);
+    setIsMoveMode(false);
+    setDuplicateOffsetX(0);
+    setDuplicateOffsetY(0);
+    drawCanvasRef.current?.();
+  };
+
+  const cancelDuplication = () => {
+    if (duplicateActive) {
+      if (isMoveMode) {
+        // Restore original pixels on cancel
+        const updated = { ...project.pixels };
+        updated[currentFrameId] = {
+          ...updated[currentFrameId],
+          [currentLayerId]: duplicatePixels
+        };
+        onUpdatePixels(updated, false);
+      }
+    }
+    setDuplicateActive(false);
+    setIsMoveMode(false);
+    setDuplicateOffsetX(0);
+    setDuplicateOffsetY(0);
+    drawCanvasRef.current?.();
+  };
+
+  const acceptMove = () => {
+    acceptDuplication();
+  };
+
+  const cancelMove = () => {
+    cancelDuplication();
+  };
+
+  /**
+   * Limpieza Explícita del Estado (clearSelection):
+   * 1. Confirma o descarta transformaciones o desplazamientos en curso.
+   * 2. Borra por completo el buffer, la matriz y la máscara del SelectionEngine subyacente.
+   * 3. Limpia buffers y referencias intermedias de trazo o arrastre.
+   * 4. Restablece el estado booleano a false y vacía el arreglo de píxeles activos.
+   * 5. Sincroniza inmediatamente con el componente padre (App.tsx).
+   * 6. Redibuja de inmediato el lienzo para purgar marching ants y sombreados.
+   */
+  const clearSelectionExplicitly = useCallback((commitModifications = true) => {
+    if (commitModifications) {
+      if (transformState.isActive) {
+        acceptTransformSelection();
+      } else if (duplicateActive) {
+        acceptDuplication();
+      } else if (moveActive) {
+        acceptMove();
+      }
+    } else {
+      if (transformState.isActive) {
+        cancelTransformSelection();
+      } else if (duplicateActive) {
+        cancelDuplication();
+      } else if (moveActive) {
+        cancelMove();
+      }
+    }
+
+    // 1. Borrado explícito del SelectionEngine nativo
+    if (selectionEngineRef.current) {
+      selectionEngineRef.current.clear();
+    }
+
+    // 2. Limpieza de referencias temporales
+    dragSelectionInitialMaskRef.current = null;
+    dragSelectionModeRef.current = 'replace';
+    setLassoPath([]);
+
+    // 3. Restablecimiento del estado React
+    const emptyState: SelectionState = { active: false, pixels: [] };
+    setSelection(emptyState);
+    onSelectionChange?.(emptyState);
+
+    // 4. Redibujar inmediatamente el lienzo
+    drawCanvasRef.current?.();
+  }, [
+    transformState.isActive,
+    duplicateActive,
+    moveActive,
+    acceptTransformSelection,
+    cancelTransformSelection,
+    acceptDuplication,
+    cancelDuplication,
+    acceptMove,
+    cancelMove,
+    onSelectionChange
+  ]);
+
+  // Stable references for state and callbacks to avoid unwanted effect re-triggers during strokes
+  const clearSelectionExplicitlyRef = useRef(clearSelectionExplicitly);
+  clearSelectionExplicitlyRef.current = clearSelectionExplicitly;
+
+  const selectionRef = useRef(selection);
+  selectionRef.current = selection;
+
+  const moveActiveRef = useRef(moveActive);
+  moveActiveRef.current = moveActive;
+
+  const transformStateRef = useRef(transformState);
+  transformStateRef.current = transformState;
+
+  const duplicateActiveRef = useRef(duplicateActive);
+  duplicateActiveRef.current = duplicateActive;
+
+  const handleDeselect = useCallback(() => {
+    clearSelectionExplicitly(true);
+  }, [clearSelectionExplicitly]);
+
+  const setSelectionWithEngine = useCallback((pixels: boolean[]) => {
+    const hasAny = pixels && pixels.length > 0 && pixels.some(Boolean);
+    if (!hasAny) {
+      clearSelectionExplicitly(false);
+      return;
+    }
+    if (selectionEngineRef.current) {
+      selectionEngineRef.current.setFromBooleanMask(pixels, 'replace');
+    }
+    const nextState: SelectionState = { active: true, pixels };
+    setSelection(nextState);
+    onSelectionChange?.(nextState);
+    drawCanvasRef.current?.();
+  }, [clearSelectionExplicitly, onSelectionChange]);
+
+  const syncSelectionFromEngine = useCallback(() => {
+    const engine = selectionEngineRef.current;
+    if (!engine || engine.mask.isEmpty()) {
+      clearSelectionExplicitly(false);
+    } else {
+      const pixels = new Array<boolean>(project.width * project.height);
+      const raw = engine.mask.getRawBuffer();
+      let hasAny = false;
+      for (let i = 0; i < raw.length; i++) {
+        const val = raw[i] > 0;
+        pixels[i] = val;
+        if (val) hasAny = true;
+      }
+      if (!hasAny) {
+        clearSelectionExplicitly(false);
+        return;
+      }
+      const nextState: SelectionState = { active: true, pixels };
+      setSelection(nextState);
+      onSelectionChange?.(nextState);
+      drawCanvasRef.current?.();
+    }
+  }, [clearSelectionExplicitly, onSelectionChange, project.width, project.height]);
+
+  const getSelectionModeFromEvent = (e?: React.MouseEvent | MouseEvent | React.TouchEvent | TouchEvent): SelectionMode => {
+    if (!e) return 'replace';
+    if (e.shiftKey && e.altKey) return 'intersect';
+    if (e.shiftKey) return 'add';
+    if (e.altKey) return 'subtract';
+    return 'replace';
+  };
+
+  const applyGeometricSelectionPreview = (
+    start: { x: number; y: number },
+    current: { x: number; y: number },
+    tool: 'rect_select' | 'ellipse_select',
+    mode: SelectionMode
+  ) => {
+    const engine = selectionEngineRef.current;
+    if (!engine) return;
+    const initialMask = dragSelectionInitialMaskRef.current;
+
+    if (initialMask) {
+      for (let y = 0; y < engine.height; y++) {
+        for (let x = 0; x < engine.width; x++) {
+          engine.mask.setValue(x, y, initialMask.getValue(x, y));
+        }
+      }
+    } else {
+      engine.clear();
+    }
+
+    const x1 = Math.min(start.x, current.x);
+    const x2 = Math.max(start.x, current.x);
+    const y1 = Math.min(start.y, current.y);
+    const y2 = Math.max(start.y, current.y);
+    const w = x2 - x1 + 1;
+    const h = y2 - y1 + 1;
+
+    if (tool === 'rect_select') {
+      engine.selectRect(x1, y1, w, h, mode);
+    } else if (tool === 'ellipse_select') {
+      const cx = x1 + w / 2;
+      const cy = y1 + h / 2;
+      const rx = w / 2;
+      const ry = h / 2;
+      engine.selectEllipse(cx, cy, rx, ry, mode);
+    }
+
+    syncSelectionFromEngine();
+  };
+
+  const moveSelection = (dx: number, dy: number) => {
+    if (!selection.active) return;
+    
+    if (!duplicateActive) {
+      startMoveSelection(dx, dy);
+    } else {
+      setDuplicateOffsetX(prev => prev + dx);
+      setDuplicateOffsetY(prev => prev + dy);
+    }
+  };
+
+  const duplicateSelection = () => {
+    if (!selection.active) return;
+    const framePixels = project.pixels[currentFrameId];
+    const layerPixels = framePixels?.[currentLayerId];
+    if (!layerPixels) return;
+
+    // Enter duplication mode: save snapshot of current state
+    setIsMoveMode(false);
+    setDuplicateActive(true);
+    setDuplicatePixels([...layerPixels]);
+    setDuplicateMask([...selection.pixels]);
+    setDuplicateOffsetX(0);
+    setDuplicateOffsetY(0);
+  };
+
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        e.preventDefault();
-        cancelTransformSelection();
+        if (transformState.isActive) {
+          e.preventDefault();
+          cancelTransformSelection();
+        } else if (selection.active || duplicateActive || moveActive) {
+          e.preventDefault();
+          clearSelectionExplicitly(false);
+        }
       } else if (e.key === 'Enter') {
-        e.preventDefault();
-        acceptTransformSelection();
+        if (transformState.isActive) {
+          e.preventDefault();
+          acceptTransformSelection();
+        } else if (duplicateActive || moveActive) {
+          e.preventDefault();
+          acceptDuplication();
+        }
       } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-        e.preventDefault();
-        const step = e.shiftKey ? 5 : 1;
-        let dx = 0;
-        let dy = 0;
-        if (e.key === 'ArrowUp') dy = -step;
-        else if (e.key === 'ArrowDown') dy = step;
-        else if (e.key === 'ArrowLeft') dx = -step;
-        else if (e.key === 'ArrowRight') dx = step;
+        if (transformState.isActive) {
+          e.preventDefault();
+          const step = e.shiftKey ? 5 : 1;
+          let dx = 0;
+          let dy = 0;
+          if (e.key === 'ArrowUp') dy = -step;
+          else if (e.key === 'ArrowDown') dy = step;
+          else if (e.key === 'ArrowLeft') dx = -step;
+          else if (e.key === 'ArrowRight') dx = step;
 
-        setTransformState(prev => ({
-          ...prev,
-          translation: {
-            x: prev.translation.x + dx,
-            y: prev.translation.y + dy
-          }
-        }));
+          setTransformState(prev => ({
+            ...prev,
+            translation: {
+              x: prev.translation.x + dx,
+              y: prev.translation.y + dy
+            }
+          }));
+        }
       }
     };
 
@@ -927,14 +1190,31 @@ const CanvasArea = React.memo(function CanvasArea({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [transformState.isActive, transformState, originalLayerPixels]);
+  }, [
+    transformState.isActive,
+    selection.active,
+    duplicateActive,
+    moveActive,
+    cancelTransformSelection,
+    clearSelectionExplicitly,
+    acceptTransformSelection
+  ]);
 
   const getCursorClass = () => {
-    return getCursorClassFromEngine(
-      transformState.isActive,
-      activeHandleRef.current as TransformHandleType,
-      hoveredHandle as TransformHandleType
-    );
+    if (transformState.isActive) {
+      return getCursorClassFromEngine(
+        transformState.isActive,
+        activeHandleRef.current as TransformHandleType,
+        hoveredHandle as TransformHandleType
+      );
+    }
+    if (currentTool === 'pan') {
+      return isPanning ? 'cursor-grabbing' : 'cursor-grab';
+    }
+    if ((duplicateActive && isDraggingDuplicate) || (isHoveringSelection && !isDrawing)) {
+      return 'cursor-move';
+    }
+    return 'cursor-crosshair';
   };
 
   // Synchronize selection state to parent
@@ -957,7 +1237,11 @@ const CanvasArea = React.memo(function CanvasArea({
   // Reset all size-dependent selection, move, duplicate, and transform states when the project ID, width, or height changes.
   // This prevents runtime index out of bounds and memory mismatch crashes during canvas resizing, importing, opening, or tab-switching.
   useEffect(() => {
+    if (selectionEngineRef.current) {
+      selectionEngineRef.current.clear();
+    }
     setSelection({ active: false, pixels: [] });
+    onSelectionChange?.({ active: false, pixels: [] });
     setLassoPath([]);
     setDuplicateActive(false);
     setDuplicatePixels([]);
@@ -991,14 +1275,37 @@ const CanvasArea = React.memo(function CanvasArea({
     setOriginalLayerPixels(null);
   }, [project.id, project.width, project.height]);
 
-  // Reset temporary drawing and tool states when currentTool changes
+  // Reset temporary drawing and tool states ONLY when currentTool actually changes
+  const prevToolRef = useRef<ToolType>(currentTool);
   useEffect(() => {
+    if (prevToolRef.current === currentTool) {
+      return;
+    }
+    prevToolRef.current = currentTool;
+
     setCurveState(null);
     setIsDrawing(false);
     setDrawStart(null);
     currentCoordRef.current = null;
     scheduleCoordDisplayUpdate(null);
     endTransaction();
+
+    // Directive: Reinicio al Cambiar de Herramienta
+    // Al momento de seleccionar cualquier otra herramienta (pincel, borrador, lápiz, etc.),
+    // desactivar y limpiar por completo cualquier máscara o estado de selección previo.
+    const isSelectionTool = ['rect_select', 'ellipse_select', 'lasso_select', 'wand'].includes(currentTool);
+    if (!isSelectionTool) {
+      const hasActiveSelection = 
+        (selectionEngineRef.current && !selectionEngineRef.current.mask.isEmpty()) ||
+        selectionRef.current.active ||
+        moveActiveRef.current ||
+        transformStateRef.current.isActive ||
+        duplicateActiveRef.current;
+
+      if (hasActiveSelection) {
+        clearSelectionExplicitlyRef.current?.(true);
+      }
+    }
   }, [currentTool]);
 
   // Listen to Escape key to cancel curve bending mode
@@ -1116,21 +1423,21 @@ const CanvasArea = React.memo(function CanvasArea({
 
     if (selectionCommand.action === 'select_all') {
       const arr = new Array(project.width * project.height).fill(true);
-      setSelection({ active: true, pixels: arr });
+      setSelectionWithEngine(arr);
     } else if (selectionCommand.action === 'deselect') {
-      setSelection({ active: false, pixels: [] });
+      clearSelectionExplicitly(false);
     } else if (selectionCommand.action === 'invert') {
       if (activeSelection.active) {
         const arr = activeSelection.pixels.map(p => !p);
-        setSelection({ active: true, pixels: arr });
+        setSelectionWithEngine(arr);
       } else {
         const arr = new Array(project.width * project.height).fill(true);
-        setSelection({ active: true, pixels: arr });
+        setSelectionWithEngine(arr);
       }
     } else if (selectionCommand.action === 'select_by_color') {
       if (layerPixels) {
         const arr = layerPixels.map(color => color === currentColor);
-        setSelection({ active: true, pixels: arr });
+        setSelectionWithEngine(arr);
       }
     } else if (selectionCommand.action === 'fill') {
       const layerMeta = project.layers.find(l => l.id === currentLayerId);
@@ -1226,7 +1533,7 @@ const CanvasArea = React.memo(function CanvasArea({
             }
           }
         }
-        setSelection({ active: true, pixels: nextPixels });
+        setSelectionWithEngine(nextPixels);
       }
     } else if (selectionCommand.action === 'contract_selection') {
       if (activeSelection.active) {
@@ -1247,11 +1554,10 @@ const CanvasArea = React.memo(function CanvasArea({
             }
           }
         }
-        const hasActive = nextPixels.some(p => p);
-        setSelection({ active: hasActive, pixels: hasActive ? nextPixels : [] });
+        setSelectionWithEngine(nextPixels);
       }
     }
-  }, [selectionCommand, project.width, project.height, currentFrameId, currentLayerId, moveActive, moveMask, movePixels, moveOffsetX, moveOffsetY]);
+  }, [selectionCommand, project.width, project.height, currentFrameId, currentLayerId, moveActive, moveMask, movePixels, moveOffsetX, moveOffsetY, setSelectionWithEngine, clearSelectionExplicitly]);
 
   const getMoveManagerInstance = () => {
     return new MoveManager({
@@ -1265,144 +1571,6 @@ const CanvasArea = React.memo(function CanvasArea({
       onStartHistoryAction,
       setSelection,
     });
-  };
-
-  // --- SELECTION OPERATIONS ---
-  const startMoveSelection = (initialDx = 0, initialDy = 0) => {
-    if (!selection.active) return;
-    const framePixels = project.pixels[currentFrameId];
-    const layerPixels = framePixels?.[currentLayerId];
-    if (!layerPixels) return;
-
-    const layerMeta = project.layers.find(l => l.id === currentLayerId);
-    if (layerMeta?.locked || !layerMeta?.visible) {
-      showToast?.(translate('canvas.cannotMoveLockedOrHidden', language), 'error');
-      return;
-    }
-
-    // Save history snapshot of original state before we clear selected pixels
-    onStartHistoryAction?.();
-
-    // Erase selected pixels from the current canvas layer
-    const updated = { ...project.pixels };
-    const nextPixels = [...layerPixels];
-    for (let i = 0; i < selection.pixels.length; i++) {
-      if (selection.pixels[i]) {
-        nextPixels[i] = '';
-      }
-    }
-    updated[currentFrameId] = {
-      ...updated[currentFrameId],
-      [currentLayerId]: nextPixels
-    };
-    onUpdatePixels(updated, false);
-
-    setIsMoveMode(true);
-    setDuplicateActive(true);
-    setDuplicatePixels([...layerPixels]); // This contains the original pixels before erasing
-    setDuplicateMask([...selection.pixels]);
-    setDuplicateOffsetX(initialDx);
-    setDuplicateOffsetY(initialDy);
-  };
-
-  const acceptMove = () => {
-    acceptDuplication();
-  };
-
-  const cancelMove = () => {
-    cancelDuplication();
-  };
-
-  const handleDeselect = () => {
-    if (transformState.isActive) {
-      acceptTransformSelection();
-    } else if (duplicateActive) {
-      acceptDuplication();
-    } else if (moveActive) {
-      acceptMove();
-    }
-    setSelection({ active: false, pixels: [] });
-  };
-
-  const moveSelection = (dx: number, dy: number) => {
-    if (!selection.active) return;
-    
-    if (!duplicateActive) {
-      startMoveSelection(dx, dy);
-    } else {
-      setDuplicateOffsetX(prev => prev + dx);
-      setDuplicateOffsetY(prev => prev + dy);
-    }
-  };
-
-  const duplicateSelection = () => {
-    if (!selection.active) return;
-    const framePixels = project.pixels[currentFrameId];
-    const layerPixels = framePixels?.[currentLayerId];
-    if (!layerPixels) return;
-
-    // Enter duplication mode: save snapshot of current state
-    setIsMoveMode(false);
-    setDuplicateActive(true);
-    setDuplicatePixels([...layerPixels]);
-    setDuplicateMask([...selection.pixels]);
-    setDuplicateOffsetX(0);
-    setDuplicateOffsetY(0);
-  };
-
-  const acceptDuplication = () => {
-    if (!duplicateActive) return;
-    const framePixels = project.pixels[currentFrameId];
-    const layerPixels = framePixels?.[currentLayerId];
-    if (!layerPixels) return;
-
-    const updated = { ...project.pixels };
-    const nextPixels = [...layerPixels];
-    const nextSelectionPixels = new Array(project.width * project.height).fill(false);
-
-    // Stamping the duplicated/moved pixels onto the active layer
-    for (let y = 0; y < project.height; y++) {
-      for (let x = 0; x < project.width; x++) {
-        const idx = y * project.width + x;
-        if (duplicateMask[idx]) {
-          const color = duplicatePixels[idx];
-          if (color) {
-            const nx = x + duplicateOffsetX;
-            const ny = y + duplicateOffsetY;
-            if (nx >= 0 && nx < project.width && ny >= 0 && ny < project.height) {
-              const targetIdx = ny * project.width + nx;
-              nextPixels[targetIdx] = color;
-              nextSelectionPixels[targetIdx] = true;
-            }
-          }
-        }
-      }
-    }
-
-    updated[currentFrameId] = {
-      ...updated[currentFrameId],
-      [currentLayerId]: nextPixels
-    };
-    onUpdatePixels(updated, false);
-
-    // Set selection mask to represent the new pasted location
-    setSelection({ active: true, pixels: nextSelectionPixels });
-    setDuplicateActive(false);
-  };
-
-  const cancelDuplication = () => {
-    if (duplicateActive) {
-      if (isMoveMode) {
-        // Restore original pixels on cancel
-        const updated = { ...project.pixels };
-        updated[currentFrameId] = {
-          ...updated[currentFrameId],
-          [currentLayerId]: duplicatePixels
-        };
-        onUpdatePixels(updated, false);
-      }
-    }
-    setDuplicateActive(false);
   };
 
   const rotateSelection = () => {
@@ -1644,6 +1812,7 @@ const CanvasArea = React.memo(function CanvasArea({
       telemetry.recordCanvasRender(performance.now() - start);
     });
   };
+  drawCanvasRef.current = drawCanvas;
 
   // --- 3. Document / Artboard Presentation Subsystem ---
   // Isolated function responsible purely for the visual appearance of the document sheet
@@ -2684,10 +2853,8 @@ const CanvasArea = React.memo(function CanvasArea({
     }
 
     strokeStartTimeRef.current = performance.now();
-    // Middle click always activates panning
-    // Left-click with Pan tool activates panning ONLY if no active/move selection is present
-    const hasActiveSelection = selection.active || moveActive || transformState.isActive;
-    if (e.button === 1 || (currentTool === 'pan' && !hasActiveSelection) || isPanning) {
+    // Middle click or Pan tool ALWAYS activates panning (viewport pan decoupled from selection move)
+    if (e.button === 1 || currentTool === 'pan' || isPanning) {
       setIsPanning(true);
       setPanStart({ x: e.clientX - panX, y: e.clientY - panY });
       return;
@@ -2714,22 +2881,6 @@ const CanvasArea = React.memo(function CanvasArea({
       }
     }
 
-    // Special: Mover tool with an active selection can drag and displace the selection from anywhere
-    const isMovingSelectionMode = hasActiveSelection && currentTool === 'pan';
-    if (isMovingSelectionMode) {
-      let currentOffsetX = duplicateOffsetX;
-      let currentOffsetY = duplicateOffsetY;
-      if (!duplicateActive) {
-        startMoveSelection();
-        currentOffsetX = 0;
-        currentOffsetY = 0;
-      }
-      setIsDraggingDuplicate(true);
-      setDragDuplicateStart({ x: e.clientX, y: e.clientY });
-      setDragDuplicateStartOffset({ x: currentOffsetX, y: currentOffsetY });
-      return;
-    }
-
     currentFractionalCoordRef.current = getFractionalCanvasCoords(e.clientX, e.clientY);
     const coord = getSnappedPixelCoords(e.clientX, e.clientY, e);
     if (!coord) return;
@@ -2740,12 +2891,39 @@ const CanvasArea = React.memo(function CanvasArea({
       return;
     }
 
-    // Handle duplicate dragging interaction
+    // Handle duplicate dragging interaction if already floating
     if (duplicateActive) {
-      setIsDraggingDuplicate(true);
-      setDragDuplicateStart({ x: e.clientX, y: e.clientY });
-      setDragDuplicateStartOffset({ x: duplicateOffsetX, y: duplicateOffsetY });
-      return;
+      const nx = coord.x - duplicateOffsetX;
+      const ny = coord.y - duplicateOffsetY;
+      const isInsideDisplaced = (nx >= 0 && nx < project.width && ny >= 0 && ny < project.height) &&
+        duplicateMask[ny * project.width + nx];
+
+      if (isInsideDisplaced) {
+        setIsDraggingDuplicate(true);
+        setDragDuplicateStart({ x: e.clientX, y: e.clientY });
+        setDragDuplicateStartOffset({ x: duplicateOffsetX, y: duplicateOffsetY });
+        return;
+      } else {
+        acceptDuplication();
+      }
+    }
+
+    // Selection tools: clicking INSIDE an existing selection starts moving it!
+    const isSelectionTool = ['rect_select', 'ellipse_select', 'lasso_select', 'wand'].includes(currentTool);
+    if (isSelectionTool && selection.active && !duplicateActive && e.button === 0) {
+      const mode = getSelectionModeFromEvent(e);
+      if (mode === 'replace') {
+        const isInside = (coord.x >= 0 && coord.x < project.width && coord.y >= 0 && coord.y < project.height) &&
+          (selection.pixels[coord.y * project.width + coord.x] || (selectionEngineRef.current && selectionEngineRef.current.contains(coord.x, coord.y)));
+
+        if (isInside) {
+          startMoveSelection(0, 0);
+          setIsDraggingDuplicate(true);
+          setDragDuplicateStart({ x: e.clientX, y: e.clientY });
+          setDragDuplicateStartOffset({ x: 0, y: 0 });
+          return;
+        }
+      }
     }
 
     // Handle move dragging interaction when NOT using the Mover tool
@@ -2826,7 +3004,7 @@ const CanvasArea = React.memo(function CanvasArea({
       const activePixels = framePixels?.[currentLayerId];
       if (activePixels) {
         const selected = getMagicWandSelection(activePixels, coord.x, coord.y, project.width, project.height, tolerance, bucketContiguous);
-        setSelection({ active: true, pixels: selected });
+        setSelectionWithEngine(selected);
       }
       return;
     }
@@ -3230,7 +3408,7 @@ const CanvasArea = React.memo(function CanvasArea({
     }
 
     // Handle selection moving dragging (uses screen coords, runs even if mouse goes outside canvas)
-    if ((moveActive || (selection.active && currentTool === 'pan')) && isDraggingMove && dragMoveStart && dragMoveStartOffset) {
+    if (moveActive && isDraggingMove && dragMoveStart && dragMoveStartOffset) {
       const deltaX = e.clientX - dragMoveStart.x;
       const deltaY = e.clientY - dragMoveStart.y;
       const manager = getMoveManagerInstance();
@@ -3246,12 +3424,23 @@ const CanvasArea = React.memo(function CanvasArea({
       currentCoordRef.current = null;
       currentFractionalCoordRef.current = null;
       scheduleCoordDisplayUpdate(null);
+      if (isHoveringSelection) setIsHoveringSelection(false);
       drawCanvas();
       return;
     }
 
     currentCoordRef.current = coord;
     scheduleCoordDisplayUpdate(coord);
+
+    if (!isDrawing && !isDraggingDuplicate && selection.active && ['rect_select', 'ellipse_select', 'lasso_select', 'wand'].includes(currentTool)) {
+      const isInside = coord.x >= 0 && coord.x < project.width && coord.y >= 0 && coord.y < project.height &&
+        (selection.pixels[coord.y * project.width + coord.x] || (selectionEngineRef.current && selectionEngineRef.current.contains(coord.x, coord.y)));
+      if (!!isInside !== isHoveringSelection) {
+        setIsHoveringSelection(!!isInside);
+      }
+    } else if (isHoveringSelection) {
+      setIsHoveringSelection(false);
+    }
 
     // Handle curve tool dragging start to end
     if (isDrawing && currentTool === 'curve' && curveState) {
@@ -3301,6 +3490,11 @@ const CanvasArea = React.memo(function CanvasArea({
       setIsDraggingDuplicate(false);
       setDragDuplicateStart(null);
       setDragDuplicateStartOffset(null);
+      if (duplicateOffsetX === 0 && duplicateOffsetY === 0) {
+        cancelDuplication();
+      } else {
+        acceptDuplication();
+      }
       return;
     }
 
@@ -3410,7 +3604,7 @@ const CanvasArea = React.memo(function CanvasArea({
           }
         });
 
-        setSelection({ active: true, pixels });
+        setSelectionWithEngine(pixels);
       } else {
         const pixels = new Array(project.width * project.height).fill(false);
         lassoPath.forEach(p => {
@@ -3418,7 +3612,7 @@ const CanvasArea = React.memo(function CanvasArea({
             pixels[p.y * project.width + p.x] = true;
           }
         });
-        setSelection({ active: true, pixels });
+        setSelectionWithEngine(pixels);
       }
       setLassoPath([]);
     }
@@ -3496,26 +3690,9 @@ const CanvasArea = React.memo(function CanvasArea({
 
     strokeStartTimeRef.current = performance.now();
     const touch = e.touches[0];
-    const hasActiveSelection = selection.active || moveActive;
-    if (currentTool === 'pan' && !hasActiveSelection) {
+    if (currentTool === 'pan') {
       setIsPanning(true);
       setPanStart({ x: touch.clientX - panX, y: touch.clientY - panY });
-      return;
-    }
-
-    // Special: Mover tool with an active selection can drag and displace the selection from anywhere
-    const isMovingSelectionMode = hasActiveSelection && currentTool === 'pan';
-    if (isMovingSelectionMode) {
-      let currentOffsetX = duplicateOffsetX;
-      let currentOffsetY = duplicateOffsetY;
-      if (!duplicateActive) {
-        startMoveSelection();
-        currentOffsetX = 0;
-        currentOffsetY = 0;
-      }
-      setIsDraggingDuplicate(true);
-      setDragDuplicateStart({ x: touch.clientX, y: touch.clientY });
-      setDragDuplicateStartOffset({ x: currentOffsetX, y: currentOffsetY });
       return;
     }
 
@@ -3524,10 +3701,37 @@ const CanvasArea = React.memo(function CanvasArea({
     if (!coord) return;
 
     if (duplicateActive) {
-      setIsDraggingDuplicate(true);
-      setDragDuplicateStart({ x: touch.clientX, y: touch.clientY });
-      setDragDuplicateStartOffset({ x: duplicateOffsetX, y: duplicateOffsetY });
-      return;
+      const nx = coord.x - duplicateOffsetX;
+      const ny = coord.y - duplicateOffsetY;
+      const isInsideDisplaced = (nx >= 0 && nx < project.width && ny >= 0 && ny < project.height) &&
+        duplicateMask[ny * project.width + nx];
+
+      if (isInsideDisplaced) {
+        setIsDraggingDuplicate(true);
+        setDragDuplicateStart({ x: touch.clientX, y: touch.clientY });
+        setDragDuplicateStartOffset({ x: duplicateOffsetX, y: duplicateOffsetY });
+        return;
+      } else {
+        acceptDuplication();
+      }
+    }
+
+    // Selection tools: touching INSIDE an existing selection starts moving it!
+    const isSelectionTool = ['rect_select', 'ellipse_select', 'lasso_select', 'wand'].includes(currentTool);
+    if (isSelectionTool && selection.active && !duplicateActive) {
+      const mode = getSelectionModeFromEvent(e);
+      if (mode === 'replace') {
+        const isInside = (coord.x >= 0 && coord.x < project.width && coord.y >= 0 && coord.y < project.height) &&
+          (selection.pixels[coord.y * project.width + coord.x] || (selectionEngineRef.current && selectionEngineRef.current.contains(coord.x, coord.y)));
+
+        if (isInside) {
+          startMoveSelection(0, 0);
+          setIsDraggingDuplicate(true);
+          setDragDuplicateStart({ x: touch.clientX, y: touch.clientY });
+          setDragDuplicateStartOffset({ x: 0, y: 0 });
+          return;
+        }
+      }
     }
 
     // Handle move dragging interaction when NOT using the Mover tool
@@ -3629,7 +3833,7 @@ const CanvasArea = React.memo(function CanvasArea({
     }
 
     // Handle selection moving dragging
-    if ((moveActive || (selection.active && currentTool === 'pan')) && isDraggingMove && dragMoveStart && dragMoveStartOffset) {
+    if (moveActive && isDraggingMove && dragMoveStart && dragMoveStartOffset) {
       const deltaX = touch.clientX - dragMoveStart.x;
       const deltaY = touch.clientY - dragMoveStart.y;
       const manager = getMoveManagerInstance();
@@ -3674,7 +3878,7 @@ const CanvasArea = React.memo(function CanvasArea({
           }
         }
       }
-      setSelection({ active: true, pixels });
+      setSelectionWithEngine(pixels);
     } else if (isDrawing && ['line', 'rectangle', 'ellipse'].includes(currentTool)) {
       drawCanvas();
     }
@@ -3690,13 +3894,14 @@ const CanvasArea = React.memo(function CanvasArea({
   return (
     <div 
       ref={containerRef}
-      className={`flex-1 min-h-0 w-full h-full bg-[#0F3D34] border border-[#0F3D34] rounded-xl overflow-hidden relative select-none touch-none ${getCursorClass()}`}
+      className={`flex-1 min-h-0 w-full h-full bg-transparent border-0 rounded-none md:bg-[#0F3D34] md:border md:border-[#0F3D34] md:rounded-xl overflow-hidden relative select-none touch-none ${getCursorClass()}`}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={(e) => {
         handleMouseUp();
         hideRulerIndicators();
+        setIsHoveringSelection(false);
       }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
@@ -3711,9 +3916,9 @@ const CanvasArea = React.memo(function CanvasArea({
       id="canvas-draw-area"
     >
       
-      {/* Rulers */}
+      {/* Rulers (Encapsulated with md:contents so they are hidden on mobile phones to maximize 100% canvas area) */}
       {rulersVisible && (
-        <>
+        <div className="hidden md:contents">
           {/* Corner piece */}
           <div 
             className="absolute top-0 left-0 w-6 h-6 ruler-corner bg-[#0C1813] border-r border-b border-[#1A382A] z-30 flex items-center justify-center cursor-default select-none group/corner shadow-xs"
@@ -3756,7 +3961,7 @@ const CanvasArea = React.memo(function CanvasArea({
               language={language}
             />
           </div>
-        </>
+        </div>
       )}
 
       {/* Guide Interactive Overlay */}
@@ -3794,8 +3999,8 @@ const CanvasArea = React.memo(function CanvasArea({
         <SelectionOverlayRenderer
           selectionEngine={selectionEngineRef.current}
           zoom={zoom}
-          panX={panX}
-          panY={panY}
+          panX={panX + (duplicateActive ? duplicateOffsetX * zoom : 0)}
+          panY={panY + (duplicateActive ? duplicateOffsetY * zoom : 0)}
           canvasWidth={project.width}
           canvasHeight={project.height}
         />
@@ -4019,38 +4224,38 @@ const CanvasArea = React.memo(function CanvasArea({
       )}
 
       {/* Floating Canvas controls */}
-      <div className="absolute right-3 sm:right-4 bottom-20 md:bottom-4 flex flex-col gap-1.5 z-10" onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
+      <div className="absolute right-3 sm:right-4 bottom-28 md:bottom-4 flex flex-col gap-2 z-20" onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
         <button
           onClick={handleZoomIn}
           onMouseDown={(e) => e.stopPropagation()}
-          className="p-2 bg-[#102419] hover:bg-[#102419] border border-[#102419] rounded-lg text-slate-300 hover:text-white transition shadow-lg touch-manipulation"
+          className="min-w-[44px] min-h-[44px] flex items-center justify-center p-2.5 bg-[#102419] hover:bg-[#102419] border border-[#102419] rounded-xl text-slate-300 hover:text-white transition shadow-xl touch-manipulation cursor-pointer active:scale-95"
           title={translate('canvas.zoomIn', language)}
         >
-          <ZoomIn className="w-4.5 h-4.5" />
+          <ZoomIn className="w-5 h-5" />
         </button>
         <button
           onClick={handleZoomOut}
           onMouseDown={(e) => e.stopPropagation()}
-          className="p-2 bg-[#102419] hover:bg-[#102419] border border-[#102419] rounded-lg text-slate-300 hover:text-white transition shadow-lg touch-manipulation"
+          className="min-w-[44px] min-h-[44px] flex items-center justify-center p-2.5 bg-[#102419] hover:bg-[#102419] border border-[#102419] rounded-xl text-slate-300 hover:text-white transition shadow-xl touch-manipulation cursor-pointer active:scale-95"
           title={translate('canvas.zoomOut', language)}
         >
-          <ZoomOut className="w-4.5 h-4.5" />
+          <ZoomOut className="w-5 h-5" />
         </button>
         <button
           onClick={centerCanvas}
           onMouseDown={(e) => e.stopPropagation()}
-          className="p-2 bg-[#102419] hover:bg-[#102419] border border-[#102419] rounded-lg text-slate-300 hover:text-white transition shadow-lg touch-manipulation"
+          className="min-w-[44px] min-h-[44px] flex items-center justify-center p-2.5 bg-[#102419] hover:bg-[#102419] border border-[#102419] rounded-xl text-slate-300 hover:text-white transition shadow-xl touch-manipulation cursor-pointer active:scale-95"
           title={translate('canvas.centerCanvas', language)}
         >
-          <Maximize2 className="w-4.5 h-4.5" />
+          <Maximize2 className="w-5 h-5" />
         </button>
         
         {/* Selection cancel button */}
         {selection.active && (
           <button
-            onClick={() => setSelection({ active: false, pixels: [] })}
+            onClick={handleDeselect}
             onMouseDown={(e) => e.stopPropagation()}
-            className="p-2 bg-rose-600 hover:bg-rose-500 border border-rose-500 rounded-lg text-white transition shadow-lg text-[10px] font-bold"
+            className="min-w-[44px] min-h-[44px] px-2.5 py-2 bg-rose-600 hover:bg-rose-500 border border-rose-500 rounded-xl text-white transition shadow-xl text-[11px] font-bold touch-manipulation cursor-pointer active:scale-95"
           >
             {translate('canvas.removeSelection', language)}
           </button>

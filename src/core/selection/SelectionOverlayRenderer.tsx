@@ -257,6 +257,16 @@ export const SelectionOverlayRenderer: React.FC<SelectionOverlayRendererProps> =
 
     // Subscribe to SelectionEngine and InteractionController changes
     const scheduleRender = () => {
+      if (selectionEngine.mask.isEmpty()) {
+        if (animFrameRef.current !== null) {
+          cancelAnimationFrame(animFrameRef.current);
+          animFrameRef.current = null;
+        }
+        if (canvas && ctx) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+        return;
+      }
       if (animFrameRef.current === null) {
         renderOverlay();
       }

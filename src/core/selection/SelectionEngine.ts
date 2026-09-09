@@ -30,6 +30,7 @@ export interface ISelectionEngine {
   selectRect(x: number, y: number, w: number, h: number, mode?: SelectionMode): void;
   selectEllipse(cx: number, cy: number, rx: number, ry: number, mode?: SelectionMode): void;
   selectPath(points: Array<{ x: number; y: number }>, mode?: SelectionMode): void;
+  setFromBooleanMask(pixels: boolean[], mode?: SelectionMode): void;
 
   /** Selección por rango / coincidencia cromática */
   selectColorRange(colorMatchFn: (x: number, y: number) => boolean, mode?: SelectionMode): void;
@@ -275,6 +276,23 @@ export class SelectionEngine implements ISelectionEngine {
       }
     }
     temp['invalidateCache']?.();
+
+    this.applyMode(temp, mode);
+  }
+
+  public setFromBooleanMask(pixels: boolean[], mode: SelectionMode = 'replace'): void {
+    if (!Array.isArray(pixels) || pixels.length === 0) {
+      if (mode === 'replace') this.clear();
+      return;
+    }
+
+    const temp = this.getTempMask();
+    const tempBuf = temp.getRawBuffer();
+    const len = Math.min(tempBuf.length, pixels.length);
+    for (let i = 0; i < len; i++) {
+      tempBuf[i] = pixels[i] ? 255 : 0;
+    }
+    (temp as SelectionMask)['invalidateCache']?.();
 
     this.applyMode(temp, mode);
   }

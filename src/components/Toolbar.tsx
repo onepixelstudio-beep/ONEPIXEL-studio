@@ -176,14 +176,14 @@ const Toolbar = React.memo(function Toolbar({
   };
 
   return (
-    <div className="lg:bg-[#102419] lg:border lg:border-[#102419] lg:rounded-lg lg:p-1 p-0 bg-transparent border-none flex flex-col gap-1 text-slate-100" id="editor-toolbar">
+    <div className="bg-[#102419] border border-[#102419] rounded-lg p-1.5 flex flex-col gap-1 text-slate-100" id="editor-toolbar">
       
       {/* Drawing Tools Section */}
       <div>
-        <h4 className="text-[9px] uppercase font-bold text-[#C8A96A] tracking-wider mb-0.5 text-center hidden lg:block">
+        <h4 className="text-[9px] uppercase font-bold text-[#C8A96A] tracking-wider mb-0.5 text-center hidden md:block">
           {translate('toolbar.title', language)}
         </h4>
-        <div className="grid grid-cols-8 sm:grid-cols-8 lg:grid-cols-3 gap-0.5">
+        <div className="grid grid-cols-3 gap-1">
           {tools.map((tool) => {
             const Icon = tool.icon;
             const isActive = currentTool === tool.id;
@@ -192,7 +192,7 @@ const Toolbar = React.memo(function Toolbar({
               <button
                 key={tool.id}
                 onClick={() => onChangeTool(tool.id)}
-                className={`${largeButtons ? 'p-2' : 'p-1'} rounded-md flex items-center justify-center transition relative group cursor-pointer ${
+                className={`${largeButtons ? 'min-h-[40px] p-2' : 'min-h-[34px] p-1.5'} rounded-md flex items-center justify-center transition relative group cursor-pointer touch-manipulation active:scale-95 ${
                   isActive 
                     ? 'bg-[#C8A96A] text-[#102419] font-bold shadow-md ring-1 ring-white/40' 
                     : 'bg-[#102419] text-slate-300 hover:text-white hover:bg-[#0F3D34] border border-[#0F3D34]/50'

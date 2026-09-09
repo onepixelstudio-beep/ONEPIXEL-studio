@@ -12,7 +12,7 @@ import {
   Menu, X, Pencil, Eraser, PaintBucket, Pipette, Hand, MousePointerClick,
   LifeBuoy, Crop, BookOpen, Compass, Zap, Clock, Heart, Scale
 } from 'lucide-react';
-import { PixelProject } from '../types';
+import { PixelProject, ToolType } from '../types';
 import { useAWE } from '../hooks/useAWE';
 import { parseCompatibleFileToProject } from '../utils/specializedImporters';
 import ImportModal from './ImportModal';
@@ -23,6 +23,7 @@ import { translate, LanguageCode } from '../i18n';
 import { telemetry } from '../utils/telemetry';
 import { OnePixelIcon, OnePixelLogo } from '../branding';
 import { LocalPersistence } from '../utils/persistence/LocalPersistence';
+import MobileTopBar from './mobile/MobileTopBar';
 
 interface HeaderMenuProps {
   project: PixelProject | null;
@@ -149,9 +150,11 @@ interface HeaderMenuProps {
   onSimulateCrash?: () => void;
   diagnosticsModeEnabled?: boolean;
   onToggleDiagnosticsMode?: () => void;
-  currentTool?: string;
+  currentTool?: ToolType;
   currentColor?: string;
-  onMobilePanelToggle?: (panel: 'tools' | 'layers' | 'color' | 'timeline' | null) => void;
+  onMobilePanelToggle?: (panel: 'tools' | 'layers' | 'color' | 'options' | 'timeline' | null) => void;
+  activeMobilePanel?: 'tools' | 'layers' | 'color' | 'options' | 'timeline' | null;
+  isMobileTimelineOpen?: boolean;
 }
 
 const HeaderMenu = React.memo(function HeaderMenu({
@@ -162,6 +165,8 @@ const HeaderMenu = React.memo(function HeaderMenu({
   currentTool,
   currentColor,
   onMobilePanelToggle,
+  activeMobilePanel,
+  isMobileTimelineOpen = false,
   onUpdatePixels,
   onNewProject,
   onSaveProject,
@@ -948,183 +953,97 @@ const HeaderMenu = React.memo(function HeaderMenu({
   return (
     <div ref={menuContainerRef} className={`flex flex-col ${awe.isMobileLandscape ? 'gap-0' : 'gap-1'} w-full relative z-[100] select-none font-sans`} id="header-menu-container">
       
-      {/* 1. Brand Header (Hidden in mobile landscape to maximize vertical canvas space) */}
-      {!awe.isMobileLandscape && (
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2 shrink-0">
-            <OnePixelLogo height={20} className="shrink-0" />
-          </div>
-          <div className="text-[10px] text-slate-500 font-mono hidden sm:block">
-            v1.2.0
-          </div>
-        </div>
-      )}
+      {/* Hidden File Inputs (Preserved for both mobile and desktop) */}
+      <input 
+        ref={openFileInputRef}
+        type="file"
+        accept=".onepixel,.pixelproject,.json,.png,.jpg,.jpeg,.gif,.bmp,.webp,.psd,.ora,.ase,.aseprite"
+        className="hidden"
+        onChange={handleOpenFileChange}
+      />
 
-      {/* 2. Options Bar */}
-      <div className={`bg-[#102419] border border-[#102419]/80 ${
-        awe.isMobileLandscape 
-          ? 'px-1.5 py-0.5 min-h-[28px] rounded-md' 
-          : 'px-2 md:px-3 py-1 rounded-lg'
-      } flex flex-col md:flex-row items-stretch md:items-center justify-start text-slate-100 shadow-lg animate-in slide-in-from-top-1 duration-150 overflow-visible`} id="header-menu-bar">
-        
-        {/* Mobile Landscape Header Row: Minimalist bar with essential menu and undo/redo only */}
-        {awe.isMobileLandscape && (
-          <div className="flex items-center justify-between w-full py-0.5 px-1">
-            {/* Logo */}
-            <div className="flex items-center gap-2 shrink-0">
-              <OnePixelLogo height={18} className="shrink-0" />
-            </div>
+      <input 
+        ref={importFileInputRef}
+        type="file"
+        accept=".png,.jpg,.jpeg,.gif,.bmp,.webp,.psd,.ora,.ase,.aseprite"
+        className="hidden"
+        onChange={handleImportLocalImageChange}
+      />
 
-            {/* Essential Controls: Undo/Redo and Menu */}
-            <div className="flex items-center gap-2 shrink-0">
-              {/* Undo / Redo */}
-              <div className="flex items-center gap-1 bg-[#102419] px-1.5 py-0.5 rounded-lg border border-[#102419]/70">
-                <button
-                  onClick={onUndo}
-                  disabled={!canUndo}
-                  title="Deshacer (Ctrl+Z)"
-                  className={`flex items-center justify-center p-1 rounded-md transition-all duration-150 ${
-                    canUndo
-                      ? 'text-[#C8A96A] hover:text-white bg-[#102419] hover:bg-[#102419]/80 active:scale-95'
-                      : 'text-slate-600 cursor-not-allowed opacity-40'
-                  }`}
-                  id="mobile-land-undo-btn"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={onRedo}
-                  disabled={!canRedo}
-                  title="Rehacer (Ctrl+Y)"
-                  className={`flex items-center justify-center p-1 rounded-md transition-all duration-150 ${
-                    canRedo
-                      ? 'text-[#C8A96A] hover:text-white bg-[#102419] hover:bg-[#102419]/80 active:scale-95'
-                      : 'text-slate-600 cursor-not-allowed opacity-40'
-                  }`}
-                  id="mobile-land-redo-btn"
-                >
-                  <RotateCw className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              {/* Menu Toggle Button */}
-              <button
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#C8A96A]/20 hover:bg-[#C8A96A]/30 text-[#C8A96A] border border-[#C8A96A]/30 transition-all active:scale-95 shrink-0"
-                id="mobile-land-menu-toggle"
-              >
-                {isMobileMenuOpen ? <X className="w-3.5 h-3.5" /> : <Menu className="w-3.5 h-3.5" />}
-                <span>{isMobileMenuOpen ? translate('common.close', language) : translate('layout.menu', language)}</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Mobile Portrait Header Row */}
-        {isMobile && !awe.isMobileLandscape && (
-          <div className="flex items-center justify-between w-full py-1">
-            {/* Mobile Undo/Redo */}
-            <div className="flex items-center gap-1.5 bg-[#102419] px-1.5 py-0.5 rounded-lg border border-[#102419]/70">
-              <button
-                onClick={onUndo}
-                disabled={!canUndo}
-                title="Deshacer (Ctrl+Z)"
-                className={`flex items-center justify-center p-1.5 rounded-md transition-all duration-150 ${
-                  canUndo
-                    ? 'text-[#C8A96A] hover:text-white bg-[#102419] hover:bg-[#102419]/80 active:scale-95'
-                    : 'text-slate-600 cursor-not-allowed opacity-40'
-                }`}
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={onRedo}
-                disabled={!canRedo}
-                title="Rehacer (Ctrl+Y)"
-                className={`flex items-center justify-center p-1.5 rounded-md transition-all duration-150 ${
-                  canRedo
-                    ? 'text-[#C8A96A] hover:text-white bg-[#102419] hover:bg-[#102419]/80 active:scale-95'
-                    : 'text-slate-600 cursor-not-allowed opacity-40'
-                }`}
-              >
-                <RotateCw className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            {/* Active Tool and Color Indicators (Mobile-Only) */}
-            <div className="flex items-center gap-1.5 bg-[#102419] border border-[#102419]/60 px-2 py-0.5 rounded-lg shrink-0">
-              {/* Tool */}
-              <button
-                onClick={() => onMobilePanelToggle?.('tools')}
-                className="flex items-center gap-1 text-[10px] text-slate-300 font-bold hover:text-white transition active:scale-95"
-                title={translate('layout.viewTools', language)}
-              >
-                {currentTool === 'pen' && <Pencil className="w-3 h-3 text-[#C8A96A]" />}
-                {currentTool === 'eraser' && <Eraser className="w-3 h-3 text-[#C8A96A]" />}
-                {currentTool === 'bucket' && <PaintBucket className="w-3 h-3 text-[#C8A96A]" />}
-                {currentTool === 'dropper' && <Pipette className="w-3 h-3 text-[#C8A96A]" />}
-                {currentTool === 'pan' && <Hand className="w-3 h-3 text-[#C8A96A]" />}
-                {!['pen', 'eraser', 'bucket', 'dropper', 'pan'].includes(currentTool || '') && <MousePointerClick className="w-3 h-3 text-[#C8A96A]" />}
-                <span className="uppercase text-[9px] font-bold tracking-wider text-[#C8A96A]">
-                  {translate(`toolbar.${currentTool}` as any, language)}
-                </span>
-              </button>
-
-              <span className="w-[1px] h-3 bg-[#102419]" />
-
-              {/* Color */}
-              <button
-                onClick={() => onMobilePanelToggle?.('color')}
-                className="flex items-center gap-1 text-[10px] text-slate-300 font-bold hover:text-white transition active:scale-95"
-                title={translate('colors.title', language)}
-              >
-                <div 
-                  className="w-3 h-3 rounded-full border border-white/20 shadow-inner" 
-                  style={{ backgroundColor: currentColor || '#ffffff' }}
-                />
-                <span className="text-[9px] font-mono tracking-tight text-slate-400">
-                  {(currentColor || '#FFFFFF').toUpperCase()}
-                </span>
-              </button>
-            </div>
-
-            {/* Mobile Menu Toggle Button */}
-            <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-[#C8A96A]/20 hover:bg-[#C8A96A]/30 text-[#C8A96A] border border-[#C8A96A]/30 transition-all active:scale-95"
-            >
-              {isMobileMenuOpen ? <X className="w-3.5 h-3.5" /> : <Menu className="w-3.5 h-3.5" />}
-              <span>{isMobileMenuOpen ? translate('common.close', language) : translate('layout.menu', language)}</span>
-            </button>
-          </div>
-        )}
-
-        {/* Hidden File Inputs */}
-        <input 
-          ref={openFileInputRef}
-          type="file"
-          accept=".onepixel,.pixelproject,.json,.png,.jpg,.jpeg,.gif,.bmp,.webp,.psd,.ora,.ase,.aseprite"
-          className="hidden"
-          onChange={handleOpenFileChange}
+      {/* 1. Mobile Single Floating Line Top Bar (Rendered only on mobile) */}
+      {isMobile ? (
+        <MobileTopBar
+          projectName={project?.name}
+          projectWidth={project?.width}
+          projectHeight={project?.height}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onUndo={onUndo}
+          onRedo={onRedo}
+          onResetZoom={onCenterCanvas}
+          showGrid={gridVisible}
+          onToggleGrid={onToggleGrid}
+          onOpenPanel={(panel) => onMobilePanelToggle?.(panel)}
+          activePanel={activeMobilePanel || null}
+          currentColor={currentColor}
+          currentTool={currentTool}
+          layersCount={project?.layers.length || 1}
+          isTimelineOpen={isMobileTimelineOpen}
+          onToggleTimeline={() => onMobilePanelToggle?.('timeline')}
+          isLandscape={awe.isMobileLandscape}
+          language={language}
+          onNewProject={() => setNewModalOpen(true)}
+          onOpenProject={() => handleOpenProjectClick()}
+          onOpenRecent={() => setRecentModalOpen(true)}
+          onSaveProject={onSaveProject}
+          onSaveAsProject={onSaveAsProject}
+          onExportPng={() => onOpenExport()}
+          onExportGif={() => onOpenExport()}
+          onExportZip={() => onOpenExport()}
+          onResizeCanvas={() => setResizeModalOpen(true)}
+          onScaleSprite={() => setScaleModalOpen(true)}
+          onOpenPreferences={onPreferencesClick}
+          onOpenHelp={() => onHelpClick?.('manual')}
+          onOpenAbout={onAboutClick}
+          onCutSelection={onCutSelection}
+          onCopySelection={onCopySelection}
+          onPasteSelection={onPasteSelection}
+          onSelectAll={onSelectAll}
+          onDeselect={onDeselect}
+          onInvertSelection={onInvertSelection}
+          onMirrorLayer={() => onMirrorLayer('horizontal')}
+          onClearLayer={onClearLayer}
+          onRotateSprite={() => onRotateSprite(90)}
+          onInvertColors={onInvertColors}
+          onToggleOnionSkin={onToggleOnionSkin}
+          onionSkinEnabled={onionSkinEnabled}
+          onToggleTiling={onToggleTiling}
+          tilingActive={tilingActive}
+          onToggleSymmetry={onToggleSymmetry}
+          symmetryActive={symmetryActive}
+          onTogglePlay={onTogglePlay}
+          isPlaying={isPlaying}
+          onAddFrame={onAddFrame}
+          onZoomIn={onZoomIn}
+          onZoomOut={onZoomOut}
         />
+      ) : (
+        /* Desktop Options Bar & Brand (100% UNTOUCHED FOR DESKTOP & TABLETS) */
+        <>
+          {/* 1. Brand Header */}
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2 shrink-0">
+              <OnePixelLogo height={20} className="shrink-0" />
+            </div>
+            <div className="text-[10px] text-slate-500 font-mono hidden sm:block">
+              v1.2.0
+            </div>
+          </div>
 
-        <input 
-          ref={importFileInputRef}
-          type="file"
-          accept=".png,.jpg,.jpeg,.gif,.bmp,.webp,.psd,.ora,.ase,.aseprite"
-          className="hidden"
-          onChange={handleImportLocalImageChange}
-        />
-
-        {/* Dropdowns lists */}
-        {(!isMobile || isMobileMenuOpen) && (
-          <div className={`${
-            awe.isMobileLandscape
-              ? 'absolute top-full left-0 right-0 mt-1 bg-[#102419] border border-[#102419] rounded-xl p-2 z-[150] shadow-2xl flex flex-wrap gap-1 max-h-[75vh] overflow-y-auto'
-              : isMobile
-              ? 'flex flex-col gap-1 w-full py-1 border-t border-[#102419]/50 mt-1.5 pt-1.5 overflow-visible'
-              : 'hidden md:flex flex-row items-center gap-0.5 py-1 w-auto shrink-0 overflow-visible'
-          }`}>
+          {/* 2. Options Bar */}
+          <div className="bg-[#102419] border border-[#102419]/80 px-2 md:px-3 py-1 rounded-lg flex flex-row items-center justify-start text-slate-100 shadow-lg animate-in slide-in-from-top-1 duration-150 overflow-visible" id="header-menu-bar">
+            {/* Dropdowns lists */}
+            <div className="hidden md:flex flex-row items-center gap-0.5 py-1 w-auto shrink-0 overflow-visible">
           {menuHeaders.map((header, idx) => {
             const isOpen = activeMenu === header.id;
             const alignRight = idx >= 5; // Paleta, Animación, Ventana, Ayuda are aligned right to prevent screen overflow
@@ -1133,7 +1052,7 @@ const HeaderMenu = React.memo(function HeaderMenu({
                 <button
                   onClick={() => handleMenuClick(header.id)}
                   onMouseEnter={() => !isMobileMenuOpen ? handleMenuMouseEnter(header.id) : undefined}
-                  className={`w-full md:w-auto text-left md:text-center px-3 py-1.5 md:py-1.5 rounded-lg text-xs font-semibold hover:bg-[#102419] transition flex items-center justify-between md:justify-center ${
+                  className={`w-full md:w-auto text-left md:text-center ${awe.isTablet ? 'px-2 py-1.5 text-[11px]' : 'px-3 py-1.5 text-xs'} rounded-lg font-semibold hover:bg-[#102419] transition flex items-center justify-between md:justify-center touch-manipulation ${
                     isOpen ? 'bg-[#102419] text-[#C8A96A] font-bold' : 'text-slate-300'
                   }`}
                 >
@@ -1804,16 +1723,14 @@ const HeaderMenu = React.memo(function HeaderMenu({
             );
           })}
         </div>
-      )}
 
         {/* Undo / Redo controls on the empty side of the options bar */}
-        {!isMobile && (
-          <div className="flex items-center gap-1.5 ml-auto shrink-0 bg-[#0F3D34] px-1.5 py-0.5 rounded-lg border border-[#102419]/70 my-0.5" id="undo-redo-toolbar-controls">
+        <div className="flex items-center gap-1.5 ml-auto shrink-0 bg-[#0F3D34] px-1.5 py-0.5 rounded-lg border border-[#102419]/70 my-0.5" id="undo-redo-toolbar-controls">
             <button
               onClick={onUndo}
               disabled={!canUndo}
               title="Deshacer (Ctrl+Z)"
-              className={`flex items-center justify-center p-1.5 rounded-md transition-all duration-150 ${
+              className={`flex items-center justify-center p-1.5 min-w-[32px] min-h-[32px] md:min-w-0 md:min-h-0 rounded-md transition-all duration-150 touch-manipulation ${
                 canUndo
                   ? 'text-[#C8A96A] hover:text-white bg-[#102419] hover:bg-[#102419]/80 active:scale-95'
                   : 'text-slate-600 cursor-not-allowed opacity-40'
@@ -1829,7 +1746,7 @@ const HeaderMenu = React.memo(function HeaderMenu({
               onClick={onRedo}
               disabled={!canRedo}
               title="Rehacer (Ctrl+Y)"
-              className={`flex items-center justify-center p-1.5 rounded-md transition-all duration-150 ${
+              className={`flex items-center justify-center p-1.5 min-w-[32px] min-h-[32px] md:min-w-0 md:min-h-0 rounded-md transition-all duration-150 touch-manipulation ${
                 canRedo
                   ? 'text-[#C8A96A] hover:text-white bg-[#0F3D34] hover:bg-[#C8A96A]/20 active:scale-95'
                   : 'text-slate-600 cursor-not-allowed opacity-40'
@@ -1839,9 +1756,10 @@ const HeaderMenu = React.memo(function HeaderMenu({
               <RotateCw className="w-4 h-4" />
             </button>
           </div>
-        )}
 
-      </div>
+        </div>
+      </>
+    )}
 
       {/* --- TUTORIAL OVERLAY MODAL --- */}
       {tutorialOpen && (() => {

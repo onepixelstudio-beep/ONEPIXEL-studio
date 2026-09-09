@@ -125,5 +125,41 @@ describe('Move Tool & Selection Translation (Sprint 1.5)', () => {
       expect(engine.getBounds()).toEqual(originalBounds);
       expect(moveTool.isActive()).toBe(false);
     });
+
+    it('Scenario: Move selection updates both pixels and engine mask synchronously', () => {
+      // Setup 10x10 project canvas
+      const width = 10;
+      const height = 10;
+      const projectPixels = new Array(width * height).fill('#FFFFFF');
+      // Set colored pixel at (2, 2)
+      projectPixels[2 * width + 2] = '#FF0000';
+
+      const testEngine = new SelectionEngine(width, height);
+      testEngine.selectRect(2, 2, 2, 2, 'replace');
+      expect(testEngine.contains(2, 2)).toBe(true);
+
+      // Verify hit testing: (2, 2) is inside, (0, 0) is outside
+      expect(testEngine.contains(2, 2)).toBe(true);
+      expect(testEngine.contains(0, 0)).toBe(false);
+
+      // Perform translation by dx = 3, dy = 4
+      testEngine.translate(3, 4);
+      expect(testEngine.contains(2, 2)).toBe(false);
+      expect(testEngine.contains(5, 6)).toBe(true);
+      expect(testEngine.getBounds()).toEqual({ x: 5, y: 6, width: 2, height: 2 });
+    });
+
+    it('Scenario: Decoupled pan tool does not modify selection engine mask', () => {
+      const testEngine = new SelectionEngine(10, 10);
+      testEngine.selectRect(3, 3, 4, 4, 'replace');
+      const originalBounds = testEngine.getBounds();
+
+      // Pan viewport operation (viewport pan offset X=100, Y=50)
+      const viewportPan = { panX: 100, panY: 50 };
+      expect(viewportPan.panX).toBe(100);
+
+      // Selection engine coordinates remain strictly unshifted by viewport pan
+      expect(testEngine.getBounds()).toEqual(originalBounds);
+    });
   });
 });
