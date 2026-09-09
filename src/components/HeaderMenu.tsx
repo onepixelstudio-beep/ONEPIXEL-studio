@@ -13,7 +13,7 @@ import {
   LifeBuoy, Crop, BookOpen, Compass, Zap, Clock, Heart, Scale
 } from 'lucide-react';
 import { PixelProject, ToolType } from '../types';
-import { useAWE } from '../hooks/useAWE';
+import { useResponsive } from '../context/ResponsiveContext';
 import { parseCompatibleFileToProject } from '../utils/specializedImporters';
 import ImportModal from './ImportModal';
 import RecentProjectsModal from './RecentProjectsModal';
@@ -272,8 +272,9 @@ const HeaderMenu = React.memo(function HeaderMenu({
   const [tutorialOpen, setTutorialOpen] = useState(false);
   const [supportModalOpen, setSupportModalOpen] = useState(false);
   
-  const awe = useAWE();
-  const isMobile = awe.isMobile;
+  const responsive = useResponsive();
+  const awe = responsive;
+  const isMobile = responsive.isMobile;
   
   const openFileInputRef = useRef<HTMLInputElement | null>(null);
   const importFileInputRef = useRef<HTMLInputElement | null>(null);

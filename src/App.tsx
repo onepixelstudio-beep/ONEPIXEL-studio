@@ -92,9 +92,11 @@ import { actionSystem } from './utils/architecture/ActionSystem';
 import { GlobalEventSystem } from './utils/architecture/GlobalEventSystem';
 import { ExportPipeline } from './utils/export/ExportPipeline';
 import { CancelError } from './utils/export/ExportErrors';
+import { useResponsive } from './context/ResponsiveContext';
 
 export default function App() {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const responsive = useResponsive();
   const awe = useAWE(containerRef);
 
   // --- CORE SYSTEM STATES ---
@@ -322,8 +324,12 @@ export default function App() {
     return saved !== null ? saved === 'true' : true;
   });
   const [timelineVisible, setTimelineVisible] = useState<boolean>(() => {
-    const saved = localStorage.getItem('onepixel_timeline_visible');
-    return saved !== null ? saved === 'true' : true;
+    const userToggled = typeof window !== 'undefined' && localStorage.getItem('onepixel_timeline_user_toggled') === 'true';
+    if (userToggled) {
+      const saved = localStorage.getItem('onepixel_timeline_visible');
+      return saved !== null ? saved === 'true' : true;
+    }
+    return !responsive.layoutStrategy.timelineAutoCollapsed;
   });
   const [gridVisible, setGridVisible] = useState<boolean>(() => {
     const saved = localStorage.getItem('onepixel_grid_visible');
@@ -3080,6 +3086,9 @@ export default function App() {
   };
 
   const toggleTimelineManual = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('onepixel_timeline_user_toggled', 'true');
+    }
     setTimelineVisible(v => !v);
     setZenModeActive(false);
   };
@@ -4066,7 +4075,7 @@ export default function App() {
       </HeaderBoundary>
 
       {/* Tab bar representing open projects (completely hidden in mobile devices to maximize canvas workspace) */}
-      {!awe.isMobile && !awe.isMobileLandscape && (
+      {responsive.layoutStrategy.showProjectTabs && (
         <div className="px-2 py-0.5 flex items-center gap-1 overflow-x-auto scrollbar-thin shrink-0" id="project-tabs-container">
           {tabs.map(tab => {
             const isActive = tab.id === activeTabId;
@@ -4141,7 +4150,7 @@ export default function App() {
           <div 
             className={`${awe.isMobile ? 'hidden' : 'block'} relative shrink-0 transition-all duration-300 ease-in-out`}
             style={{
-              width: sidebarVisible ? (awe.isTablet ? '58px' : (awe.width < 1200 ? '172px' : '198px')) : '0px',
+              width: sidebarVisible ? `${responsive.layoutStrategy.toolbarWidth}px` : '0px',
               marginInlineEnd: sidebarVisible ? (awe.interfaceDensity === 'compact' ? '2px' : '4px') : '0px',
             }}
             id="left-toolbar-wrapper"
@@ -4257,7 +4266,7 @@ export default function App() {
         }`}>
           
           {/* Options Bar (hidden in mobile devices to maximize canvas workspace; options are accessible via Tools panel) */}
-          {!awe.isMobile && !awe.isMobileLandscape && (
+          {responsive.layoutStrategy.showOptionBar && (
             <OptionBar
               currentTool={currentTool}
               language={preferences.language || 'es'}
@@ -4439,7 +4448,7 @@ export default function App() {
             <div 
               className={`${awe.isMobile ? 'hidden' : 'flex'} flex-col shrink-0 h-full select-none gap-1.5`}
               style={{
-                width: awe.width < 1200 ? '240px' : '264px',
+                width: `${responsive.layoutStrategy.rightDockWidth}px`,
                 marginInlineStart: awe.interfaceDensity === 'compact' ? '2px' : '4px',
               }}
               id="right-column-container"
@@ -4568,7 +4577,7 @@ export default function App() {
           {/* Toggle Handle Button */}
           <button
             onClick={toggleTimelineManual}
-            className="absolute left-1/2 -translate-x-1/2 top-[-16px] w-16 h-4 bg-brand-petroleum hover:bg-brand-turquoise border-t border-x border-brand-turquoise/30 text-slate-400 hover:text-white rounded-t-lg flex items-center justify-center cursor-pointer z-30 transition-all duration-150 shadow-md touch-manipulation"
+            className={`absolute left-1/2 -translate-x-1/2 top-[-18px] ${awe.isTablet ? 'w-20 h-5' : 'w-16 h-4'} bg-brand-petroleum hover:bg-brand-turquoise border-t border-x border-brand-turquoise/30 text-slate-400 hover:text-white rounded-t-lg flex items-center justify-center cursor-pointer z-30 transition-all duration-150 shadow-md touch-manipulation`}
             title={timelineVisible ? "Ocultar Línea de Tiempo" : "Mostrar Línea de Tiempo"}
           >
             {timelineVisible ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}

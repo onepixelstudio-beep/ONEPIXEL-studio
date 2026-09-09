@@ -7,7 +7,7 @@ import {
   AlertTriangle, RefreshCw, X, HelpCircle, LogIn, LogOut, CheckSquare, Grid, Maximize2
 } from 'lucide-react';
 import { PixelProject, ToolType, SymmetrySettings, OnionSkinSettings } from '../types';
-import { useAWE } from '../hooks/useAWE';
+import { useResponsive } from '../context/ResponsiveContext';
 import { PersistenceService } from '../utils/persistence/PersistenceService';
 import { WindowSystem } from '../utils/architecture/WindowSystem';
 import { translate, LanguageCode } from '../i18n';
@@ -69,7 +69,8 @@ export default function WelcomeScreen({
   language = 'es',
   initialNewProjectModal = false
 }: WelcomeScreenProps) {
-  const awe = useAWE();
+  const responsive = useResponsive();
+  const awe = responsive;
   const [headerHeight, setHeaderHeight] = useState(0);
 
   useEffect(() => {

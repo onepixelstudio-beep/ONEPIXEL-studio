@@ -2,6 +2,7 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import { ErrorBoundary } from './components/ErrorBoundary.tsx';
+import { ResponsiveProvider } from './context/ResponsiveContext.tsx';
 import './index.css';
 
 // Register Service Worker for PWA installability and offline support
@@ -21,7 +22,9 @@ if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
-      <App />
+      <ResponsiveProvider>
+        <App />
+      </ResponsiveProvider>
     </ErrorBoundary>
   </StrictMode>,
 );
