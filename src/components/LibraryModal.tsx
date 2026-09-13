@@ -734,14 +734,14 @@ export default function LibraryModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs font-sans text-slate-100" id="library-modal">
-      <div className="bg-[#102419] border border-[#102419] rounded-xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden shadow-2xl">
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-2 sm:p-4 backdrop-blur-xs font-sans text-slate-100" id="library-modal">
+      <div className="bg-[#102419] border border-[#102419] rounded-xl w-full max-w-4xl h-[94dvh] sm:h-[85vh] flex flex-col overflow-hidden shadow-2xl">
         
         {/* Header */}
-        <div className="p-4 border-b border-[#102419] flex items-center justify-between bg-[#102419]">
+        <div className="p-3 sm:p-4 border-b border-[#102419] flex items-center justify-between bg-[#102419] shrink-0">
           <div className="flex items-center gap-3">
-            <FolderOpen className="text-[#C8A96A] w-6 h-6" />
-            <h2 className="text-lg font-bold tracking-wide text-slate-100">{translate('libraryModal.title', language as any)}</h2>
+            <FolderOpen className="text-[#C8A96A] w-5 h-5 sm:w-6 sm:h-6" />
+            <h2 className="text-sm sm:text-lg font-bold tracking-wide text-slate-100">{translate('libraryModal.title', language as any)}</h2>
           </div>
           
           <div className="flex items-center gap-3">
@@ -752,7 +752,7 @@ export default function LibraryModal({
         </div>
 
         {/* Categories / Tabs */}
-        <div className="flex bg-[#102419]/90 border-b border-[#102419] px-4">
+        <div className="flex bg-[#102419]/90 border-b border-[#102419] px-2 sm:px-4 overflow-x-auto no-scrollbar shrink-0">
           {(['project', 'palette', 'brush', 'texture'] as ResourceType[]).map((tab) => (
             <button
               key={tab}
@@ -761,7 +761,7 @@ export default function LibraryModal({
                 setSelectedFolderId('all');
                 setSelectedTag(null);
               }}
-              className={`px-5 py-3 text-xs font-semibold border-b-2 transition capitalize ${
+              className={`px-3 sm:px-5 py-2.5 sm:py-3 text-xs font-semibold border-b-2 transition capitalize whitespace-nowrap shrink-0 ${
                 activeTab === tab 
                   ? 'border-[#C8A96A] text-[#C8A96A] bg-[#102419]' 
                   : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-[#102419]/40'
@@ -775,10 +775,10 @@ export default function LibraryModal({
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
           
           {/* Left Sidebar (Folders & Tags) */}
-          <div className="w-64 bg-[#102419] border-r border-[#102419] p-4 flex flex-col gap-5 overflow-y-auto">
+          <div className="w-full md:w-64 bg-[#102419] border-b md:border-b-0 md:border-r border-[#102419] p-2.5 sm:p-4 flex md:flex-col gap-3 md:gap-5 overflow-x-auto md:overflow-y-auto shrink-0 no-scrollbar">
             
             {/* Folder list */}
             <div>

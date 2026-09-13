@@ -23,7 +23,8 @@ export const es: TranslationSchema = {
     "save": "Guardar",
     "apply": "Aplicar",
     "error": "Error",
-    "duplicate": "Duplicar"
+    "duplicate": "Duplicar",
+    "options": "Opciones"
   },
   "preferences": {
     "title": "Preferencias del Sistema",

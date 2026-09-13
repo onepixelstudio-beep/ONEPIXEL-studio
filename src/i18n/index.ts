@@ -27,6 +27,12 @@ const KEY_ALIASES: Record<string, string> = {
   'p_perfect': 'toolbar.pixelPerfect',
   'common.add': 'common.add',
   'common.addButton': 'common.add',
+  'options': 'common.options',
+  'header.options': 'common.options',
+  'layout.options': 'common.options',
+  'animation': 'exportModal.tabAnimation',
+  'header.animation': 'exportModal.tabAnimation',
+  'timeline.animation': 'exportModal.tabAnimation',
 };
 
 /**

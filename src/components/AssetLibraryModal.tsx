@@ -322,22 +322,22 @@ export default function AssetLibraryModal({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-brand-depth/80 backdrop-blur-xs select-none">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-brand-depth/80 backdrop-blur-xs select-none">
         <motion.div
           initial={{ opacity: 0, scale: 0.98, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.98, y: 10 }}
           transition={{ duration: 0.25 }}
-          className="w-full max-w-6xl h-[85vh] bg-brand-petroleum border border-brand-turquoise/30 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-200"
+          className="w-full max-w-6xl h-[94dvh] sm:h-[85vh] bg-brand-petroleum border border-brand-turquoise/30 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-200"
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 bg-brand-petroleum border-b border-brand-turquoise/30">
+          <div className="flex items-center justify-between px-3.5 sm:px-6 py-2.5 sm:py-4 bg-brand-petroleum border-b border-brand-turquoise/30 shrink-0">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-brand-turquoise/10 text-brand-sand rounded-xl">
                 <Database className="w-5 h-5" />
               </div>
               <div>
-                <h2 className="text-sm font-bold uppercase tracking-wider text-slate-100 font-sans">
+                <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-100 font-sans">
                   {translate('assetLibrary.title', language)}
                 </h2>
                 <p className="text-[10px] text-slate-400 mt-0.5">
@@ -355,9 +355,9 @@ export default function AssetLibraryModal({
           </div>
 
           {/* Subheader / Search & Sort */}
-          <div className="px-6 py-3 bg-brand-depth border-b border-brand-turquoise/30 flex flex-wrap items-center justify-between gap-4">
+          <div className="px-3.5 sm:px-6 py-2.5 sm:py-3 bg-brand-depth border-b border-brand-turquoise/30 flex flex-wrap items-center justify-between gap-3 shrink-0">
             {/* Search Input */}
-            <div className="relative flex-1 min-w-[280px] max-w-md">
+            <div className="relative flex-1 min-w-[200px] max-w-md">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
                 <Search className="w-4 h-4" />
               </span>
@@ -404,10 +404,10 @@ export default function AssetLibraryModal({
           </div>
 
           {/* Body content layout */}
-          <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
             
             {/* 1. Left Filters Panel */}
-            <div className="w-56 bg-brand-depth border-r border-brand-turquoise/20 p-4 flex flex-col gap-5 overflow-y-auto">
+            <div className="w-full md:w-56 bg-brand-depth border-b md:border-b-0 md:border-r border-brand-turquoise/20 p-2.5 sm:p-4 flex md:flex-col gap-2 md:gap-5 overflow-x-auto md:overflow-y-auto shrink-0 no-scrollbar">
               
               {/* Categories */}
               <div>
@@ -613,7 +613,7 @@ export default function AssetLibraryModal({
             </div>
 
             {/* 3. Enlarged Right Preview Detail Panel */}
-            <div className="w-72 bg-brand-depth border-l border-brand-turquoise/20 p-5 flex flex-col justify-between overflow-y-auto">
+            <div className="w-full md:w-72 bg-brand-depth border-t md:border-t-0 md:border-l border-brand-turquoise/20 p-4 md:p-5 flex flex-col justify-between overflow-y-auto shrink-0">
               {selectedAsset ? (
                 <div className="flex-1 flex flex-col justify-between h-full">
                   <div className="space-y-5">

@@ -125,9 +125,9 @@ export default function PreferencesModal({
       <div className="absolute inset-0 bg-brand-depth/80 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal Card */}
-      <div className="relative bg-brand-petroleum border border-brand-turquoise/40 rounded-2xl w-full max-w-3xl h-[70vh] shadow-2xl overflow-hidden flex flex-col text-slate-100 font-sans" id="preferences-modal">
+      <div className="relative bg-brand-petroleum border border-brand-turquoise/40 rounded-2xl w-full max-w-3xl h-[94dvh] sm:h-[80vh] max-h-[850px] shadow-2xl overflow-hidden flex flex-col text-slate-100 font-sans" id="preferences-modal">
         {/* Header */}
-        <div className="px-5 py-4 border-b border-brand-turquoise/30 flex justify-between items-center bg-brand-depth">
+        <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-brand-turquoise/30 flex justify-between items-center bg-brand-depth shrink-0">
           <div className="flex items-center gap-2">
             <Settings className="w-5 h-5 text-brand-sand" />
             <h3 className="font-bold text-sm tracking-tight">{translate('preferences.title', preferences.language)}</h3>
@@ -141,23 +141,23 @@ export default function PreferencesModal({
         </div>
 
         {/* Content Body split in categories sidebar and details */}
-        <div className="flex-1 flex overflow-hidden bg-brand-depth">
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden bg-brand-depth min-h-0">
           {/* Categories list */}
-          <div className="w-52 border-r border-brand-turquoise/20 bg-brand-petroleum overflow-y-auto p-2 space-y-1 no-scrollbar">
+          <div className="w-full md:w-52 border-b md:border-b-0 md:border-r border-brand-turquoise/20 bg-brand-petroleum flex md:flex-col overflow-x-auto md:overflow-y-auto p-1.5 md:p-2 gap-1 md:space-y-1 no-scrollbar shrink-0">
             {categoriesList.map(cat => (
               <button
                 key={cat.id}
                 onClick={() => setActiveCategory(cat.id)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold transition text-left ${activeCategory === cat.id ? 'bg-brand-sage/20 text-brand-sand font-extrabold border-l-2 border-brand-sage' : 'text-slate-400 hover:text-slate-200 hover:bg-brand-turquoise/20'}`}
+                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition text-left shrink-0 whitespace-nowrap md:whitespace-normal ${activeCategory === cat.id ? 'bg-brand-sage/20 text-brand-sand font-extrabold border-b-2 md:border-b-0 md:border-l-2 border-brand-sage' : 'text-slate-400 hover:text-slate-200 hover:bg-brand-turquoise/20'}`}
               >
                 {cat.icon}
-                {cat.label}
+                <span>{cat.label}</span>
               </button>
             ))}
           </div>
 
           {/* Preferences Settings Detail */}
-          <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 no-scrollbar">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 space-y-6 no-scrollbar w-full">
             <div className="space-y-1">
               <h4 className="text-base font-extrabold text-white capitalize">
                 {activeCategory === 'branding' ? 'Sistema de Branding Oficial' : activeCategory === 'onionSkin' ? 'Onion Skin (Papel de Cebolla)' : activeCategory}

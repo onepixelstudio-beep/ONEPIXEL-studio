@@ -218,7 +218,7 @@ export const InteractiveTour: React.FC<InteractiveTourProps> = ({
 
       {/* Tour Dialogue Card */}
       <div 
-        className="absolute bg-[#102419] border border-[#C8A96A]/60 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.85)] p-5 md:p-6 text-slate-100 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200"
+        className="absolute bg-[#102419] border border-[#C8A96A]/60 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.85)] p-4 sm:p-5 md:p-6 text-slate-100 flex flex-col gap-3 sm:gap-4 animate-in fade-in zoom-in-95 duration-200 max-h-[90dvh] overflow-y-auto scrollbar-thin z-[100]"
         style={cardStyle}
       >
         {/* Header with Icon, Badge & Exit */}

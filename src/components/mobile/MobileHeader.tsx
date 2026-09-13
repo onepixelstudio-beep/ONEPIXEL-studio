@@ -1,6 +1,6 @@
 import React from 'react';
 import { 
-  RotateCcw, RotateCw, Menu, Maximize2, Grid, 
+  RotateCcw, RotateCw, Menu, Film, Grid, 
   Sparkles, Check
 } from 'lucide-react';
 import { OnePixelLogo } from '../../branding';
@@ -15,7 +15,9 @@ interface MobileHeaderProps {
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
-  onResetZoom: () => void;
+  onResetZoom?: () => void;
+  isTimelineOpen?: boolean;
+  onToggleTimeline?: () => void;
   showGrid: boolean;
   onToggleGrid: () => void;
   onOpenMenu: () => void;
@@ -31,6 +33,8 @@ export const MobileHeader: React.FC<MobileHeaderProps> = React.memo(function Mob
   onUndo,
   onRedo,
   onResetZoom,
+  isTimelineOpen,
+  onToggleTimeline,
   showGrid,
   onToggleGrid,
   onOpenMenu,
@@ -82,14 +86,22 @@ export const MobileHeader: React.FC<MobileHeaderProps> = React.memo(function Mob
 
       {/* Right: Quick Canvas Actions & Menu Trigger (44px touch targets) */}
       <div className="flex items-center gap-1">
-        {/* Reset Zoom / Center Canvas */}
-        <button
-          onClick={onResetZoom}
-          className="min-w-[40px] min-h-[36px] p-1.5 rounded-lg text-slate-300 hover:text-white active:scale-90 transition touch-manipulation cursor-pointer"
-          title="Centrar y ajustar lienzo"
-        >
-          <Maximize2 className="w-4 h-4" />
-        </button>
+        {/* Animation Timeline Toggle Shortcut */}
+        {onToggleTimeline && (
+          <button
+            onClick={onToggleTimeline}
+            className={`min-w-[40px] min-h-[36px] p-1.5 rounded-lg active:scale-90 transition touch-manipulation cursor-pointer flex items-center justify-center ${
+              isTimelineOpen
+                ? 'bg-[#C8A96A] text-[#102419] font-bold shadow-[0_0_8px_rgba(200,169,106,0.3)]'
+                : 'text-[#C8A96A] hover:text-white hover:bg-white/10'
+            }`}
+            title={translate('timeline.title', language) || translate('header.animation', language) || 'Animación'}
+            aria-label={translate('header.animation', language) || 'Animación'}
+            id="mobile-header-btn-animation"
+          >
+            <Film className="w-4 h-4" />
+          </button>
+        )}
 
         {/* Grid Toggle */}
         <button

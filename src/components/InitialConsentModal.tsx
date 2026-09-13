@@ -63,37 +63,37 @@ export const InitialConsentModal: React.FC<InitialConsentModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-[2000] flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-300"
+      className="fixed inset-0 z-[2000] flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-300 overflow-hidden"
       id="initial-legal-consent-modal"
     >
       <div 
-        className="bg-[#102419] border border-[#1b3d2b] rounded-2xl w-full max-w-2xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden ring-1 ring-white/10"
+        className="bg-[#102419] border border-[#1b3d2b] rounded-2xl w-full max-w-2xl max-h-[96dvh] sm:max-h-[90vh] flex flex-col shadow-2xl overflow-hidden ring-1 ring-white/10"
         role="dialog"
         aria-modal="true"
       >
         {/* Top Branding Header */}
-        <div className="px-6 pt-6 pb-4 border-b border-[#1b3d2b] bg-[#0c1c13]/90 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3 text-center sm:text-left">
-            <div className="flex items-center justify-center p-2 bg-[#102419] border border-[#C8A96A]/30 rounded-xl">
-              <OnePixelLogo height={32} />
+        <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-[#1b3d2b] bg-[#0c1c13]/90 flex items-center justify-between gap-2 shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="flex items-center justify-center p-1.5 sm:p-2 bg-[#102419] border border-[#C8A96A]/30 rounded-xl shrink-0">
+              <OnePixelLogo height={24} />
             </div>
-            <div>
-              <h2 className="text-base font-bold text-white tracking-wide">
+            <div className="min-w-0">
+              <h2 className="text-sm sm:text-base font-bold text-white tracking-wide truncate">
                 {translate('initialConsent.welcomeTitle', lang) || 'Bienvenido a OnePixel Studio'}
               </h2>
-              <span className="text-[11px] text-[#C8A96A] font-medium">
+              <span className="text-[10px] sm:text-[11px] text-[#C8A96A] font-medium block truncate">
                 {translate('initialConsent.welcomeSubtitle', lang) || 'Editor y Suite de Animación Pixel Art Local-First'}
               </span>
             </div>
           </div>
 
           {/* Language Selector */}
-          <div className="flex items-center gap-2 bg-[#102419] border border-[#1b3d2b] rounded-xl px-2.5 py-1 text-xs">
+          <div className="flex items-center gap-1.5 bg-[#102419] border border-[#1b3d2b] rounded-xl px-2 py-1 text-xs shrink-0">
             <Globe className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             <select
               value={lang}
               onChange={(e) => handleLanguageChange(e.target.value as LanguageCode)}
-              className="bg-transparent text-slate-200 text-xs focus:outline-none cursor-pointer"
+              className="bg-transparent text-slate-200 text-[11px] sm:text-xs focus:outline-none cursor-pointer"
               aria-label="Seleccionar idioma de lectura"
             >
               {languagesList.map(l => (
@@ -106,44 +106,44 @@ export const InitialConsentModal: React.FC<InitialConsentModalProps> = ({
         </div>
 
         {/* Tab Navigation for Document Preview */}
-        <div className="flex items-center gap-1 px-6 pt-3 border-b border-[#1b3d2b] bg-[#0c1c13]/40 text-xs">
+        <div className="flex items-center gap-1 px-3 sm:px-6 pt-2 border-b border-[#1b3d2b] bg-[#0c1c13]/40 text-xs shrink-0 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setActiveDocView('summary')}
-            className={`px-3 py-1.5 rounded-t-lg font-semibold transition border-b-2 flex items-center gap-1.5 ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-t-lg font-semibold transition border-b-2 flex items-center gap-1.5 whitespace-nowrap shrink-0 text-[11px] sm:text-xs ${
               activeDocView === 'summary'
                 ? 'border-[#C8A96A] text-white bg-[#102419]'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
             <span>{translate('initialConsent.summaryTab', lang) || 'Resumen de Privacidad'}</span>
           </button>
           <button
             onClick={() => setActiveDocView('terms')}
-            className={`px-3 py-1.5 rounded-t-lg font-semibold transition border-b-2 flex items-center gap-1.5 ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-t-lg font-semibold transition border-b-2 flex items-center gap-1.5 whitespace-nowrap shrink-0 text-[11px] sm:text-xs ${
               activeDocView === 'terms'
                 ? 'border-[#C8A96A] text-white bg-[#102419]'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            <FileText className="w-3.5 h-3.5 text-[#C8A96A]" />
-            <span>{translate('initialConsent.viewTermsButton', lang) || 'Ver Términos de Uso'}</span>
+            <FileText className="w-3.5 h-3.5 text-[#C8A96A] shrink-0" />
+            <span>{translate('initialConsent.viewTermsButton', lang) || 'Términos de Uso'}</span>
           </button>
           <button
             onClick={() => setActiveDocView('privacy')}
-            className={`px-3 py-1.5 rounded-t-lg font-semibold transition border-b-2 flex items-center gap-1.5 ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-t-lg font-semibold transition border-b-2 flex items-center gap-1.5 whitespace-nowrap shrink-0 text-[11px] sm:text-xs ${
               activeDocView === 'privacy'
                 ? 'border-[#C8A96A] text-white bg-[#102419]'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Lock className="w-3.5 h-3.5 text-emerald-400" />
-            <span>{translate('initialConsent.viewPrivacyButton', lang) || 'Ver Política de Privacidad'}</span>
+            <Lock className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span>{translate('initialConsent.viewPrivacyButton', lang) || 'Política de Privacidad'}</span>
           </button>
         </div>
 
         {/* Document Content View */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4 text-slate-200 text-xs leading-relaxed">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3.5 sm:p-6 space-y-4 text-slate-200 text-xs leading-relaxed">
           {activeDocView === 'summary' && (
             <div className="space-y-4 animate-in fade-in duration-150">
               <p className="text-slate-300 font-medium text-xs sm:text-sm leading-relaxed">
@@ -255,11 +255,11 @@ export const InitialConsentModal: React.FC<InitialConsentModalProps> = ({
         </div>
 
         {/* Consent Checkbox & Action Button Footer */}
-        <div className="px-6 py-4 border-t border-[#1b3d2b] bg-[#0c1c13] flex flex-col gap-3">
+        <div className="px-4 py-3 sm:px-6 sm:py-4 border-t border-[#1b3d2b] bg-[#0c1c13] flex flex-col gap-2.5 shrink-0">
           
           {/* Mandatory Checkbox */}
-          <label className="flex items-start gap-3 cursor-pointer group select-none">
-            <div className="relative flex items-center justify-center mt-0.5">
+          <label className="flex items-start gap-2.5 cursor-pointer group select-none">
+            <div className="relative flex items-center justify-center mt-0.5 shrink-0">
               <input
                 type="checkbox"
                 checked={agreed}
@@ -268,26 +268,26 @@ export const InitialConsentModal: React.FC<InitialConsentModalProps> = ({
                 id="legal-terms-consent-checkbox"
               />
             </div>
-            <span className="text-xs text-slate-300 group-hover:text-white transition leading-snug">
+            <span className="text-[11px] sm:text-xs text-slate-300 group-hover:text-white transition leading-snug">
               {translate('initialConsent.checkboxLabel', lang) || 
                'He leído y acepto los Términos y condiciones de uso y la Política de privacidad de OnePixel Studio.'}
             </span>
           </label>
 
           {/* Action Row */}
-          <div className="flex items-center justify-between gap-3 pt-1">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between gap-2 pt-0.5">
+            <div className="flex items-center gap-2 min-w-0">
               {onDecline && (
                 <button
                   type="button"
                   onClick={onDecline}
                   id="legal-decline-and-exit-btn"
-                  className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-rose-300 hover:bg-rose-950/30 border border-[#1b3d2b] hover:border-rose-900/50 transition cursor-pointer"
+                  className="min-h-[40px] px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-rose-300 hover:bg-rose-950/30 border border-[#1b3d2b] hover:border-rose-900/50 transition cursor-pointer touch-manipulation active:scale-95 shrink-0"
                 >
                   {translate('common.exit', lang) || 'Salir'}
                 </button>
               )}
-              <span className="text-[10px] text-slate-500 font-mono hidden sm:inline">
+              <span className="text-[10px] text-slate-500 font-mono hidden md:inline truncate">
                 {translate('initialConsent.localOnlyNotice', lang) || 'Persistencia 100% local en tu dispositivo'}
               </span>
             </div>
@@ -296,14 +296,14 @@ export const InitialConsentModal: React.FC<InitialConsentModalProps> = ({
               onClick={handleAcceptAndContinue}
               disabled={!agreed}
               id="legal-accept-and-continue-btn"
-              className={`px-6 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-md ${
+              className={`min-h-[40px] px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-md touch-manipulation active:scale-95 shrink-0 ${
                 agreed
-                  ? 'bg-[#C8A96A] hover:bg-[#d9bb7c] text-slate-950 active:scale-95 cursor-pointer font-bold'
+                  ? 'bg-[#C8A96A] hover:bg-[#d9bb7c] text-slate-950 cursor-pointer font-bold'
                   : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700/50 opacity-60'
               }`}
             >
               <Check className="w-4 h-4 shrink-0" />
-              <span>{translate('initialConsent.acceptButton', lang) || 'Aceptar y continuar'}</span>
+              <span className="whitespace-nowrap">{translate('initialConsent.acceptButton', lang) || 'Aceptar y continuar'}</span>
             </button>
           </div>
         </div>

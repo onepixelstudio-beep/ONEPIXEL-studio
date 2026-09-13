@@ -56,6 +56,7 @@ interface TimelineProps {
   onUpdateTag?: (tagId: string, fields: Partial<Omit<AnimationTag, 'id'>>) => void;
   onDeleteTag?: (tagId: string) => void;
   language: LanguageCode;
+  isTablet?: boolean;
 }
 
 const Timeline = React.memo(function Timeline({
@@ -100,7 +101,8 @@ const Timeline = React.memo(function Timeline({
   onAddTag,
   onUpdateTag,
   onDeleteTag,
-  language
+  language,
+  isTablet = false
 }: TimelineProps) {
   const selectedIndex = frames.findIndex(f => f.id === selectedFrameId);
   const [dragOverId, setDragOverId] = React.useState<string | null>(null);
@@ -716,10 +718,10 @@ const Timeline = React.memo(function Timeline({
       </div>
 
       {/* 2. MAIN LAYOUT: Split left Layers list and right Frames Grid */}
-      <div className="flex flex-row min-h-[95px] max-h-[155px] w-full bg-brand-depth">
+      <div className={`flex flex-row ${isTablet ? 'min-h-[80px] max-h-[125px]' : 'min-h-[95px] max-h-[155px]'} w-full bg-brand-depth`}>
         
         {/* LEFT COLUMN: Layers list track */}
-        <div className="w-64 shrink-0 bg-brand-petroleum border-r border-brand-turquoise/30 flex flex-col">
+        <div className={`${isTablet ? 'w-44' : 'w-64'} shrink-0 bg-brand-petroleum border-r border-brand-turquoise/30 flex flex-col`}>
           {/* Tags Track Header Left */}
           <div className="h-6 px-3 flex items-center justify-between border-b border-brand-turquoise/30 bg-brand-depth text-[10px] font-bold text-slate-400 uppercase tracking-wide shrink-0">
             <div className="flex items-center gap-1.5">

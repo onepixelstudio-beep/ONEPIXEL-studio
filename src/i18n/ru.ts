@@ -23,7 +23,8 @@ export const ru: TranslationSchema = {
     "save": "Сохранить",
     "apply": "Применить",
     "error": "Ошибка",
-    "duplicate": "Дублировать"
+    "duplicate": "Дублировать",
+    "options": "Параметры"
   },
   "preferences": {
     "title": "Настройки системы",

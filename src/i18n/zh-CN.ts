@@ -23,7 +23,8 @@ export const zhCN: TranslationSchema = {
     "save": "保存",
     "apply": "应用",
     "error": "错误",
-    "duplicate": "复制"
+    "duplicate": "复制",
+    "options": "选项"
   },
   "preferences": {
     "title": "系统首选项",

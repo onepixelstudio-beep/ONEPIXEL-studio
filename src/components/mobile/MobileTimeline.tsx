@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Play, Pause, Plus, ChevronLeft, ChevronRight, 
   ChevronUp, ChevronDown, Copy, Trash2, Repeat, 
-  Layers, Eye, X, Check, EyeOff
+  Layers, Eye, X, Check, EyeOff, ArrowLeftRight, RotateCcw
 } from 'lucide-react';
 import { Frame, PixelProject, LanguageCode, OnionSkinSettings } from '../../types';
 import { translate } from '../../i18n';
@@ -23,6 +23,8 @@ interface MobileTimelineProps {
   onToggleOnionSkin: () => void;
   loopEnabled: boolean;
   onToggleLoop: () => void;
+  playbackMode?: 'forward' | 'reverse' | 'pingpong';
+  onChangePlaybackMode?: (mode: 'forward' | 'reverse' | 'pingpong') => void;
   onClose: () => void;
   language: LanguageCode;
 }
@@ -42,6 +44,8 @@ export const MobileTimeline: React.FC<MobileTimelineProps> = React.memo(function
   onToggleOnionSkin,
   loopEnabled,
   onToggleLoop,
+  playbackMode = 'forward',
+  onChangePlaybackMode,
   onClose,
   language
 }) {
@@ -283,8 +287,8 @@ export const MobileTimeline: React.FC<MobileTimelineProps> = React.memo(function
         </button>
       </div>
 
-      {/* Bottom Controls Bar: Playback & Speed */}
-      <div className="flex items-center justify-between pt-2 border-t border-white/10">
+      {/* Bottom Controls Bar: Playback & Speed & Modes */}
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-white/10">
         {/* Play / Pause (44px target) */}
         <button
           onClick={onTogglePlay}
@@ -297,6 +301,51 @@ export const MobileTimeline: React.FC<MobileTimelineProps> = React.memo(function
           {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
           <span>{isPlaying ? 'Pausar' : 'Reproducir'}</span>
         </button>
+
+        {/* Playback Mode (Normal, Ping-Pong, Reversa) */}
+        {onChangePlaybackMode && (
+          <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/10">
+            <button
+              type="button"
+              onClick={() => onChangePlaybackMode('forward')}
+              className={`min-h-[32px] px-2 rounded-lg text-[10px] font-bold transition active:scale-95 touch-manipulation flex items-center gap-1 ${
+                playbackMode === 'forward'
+                  ? 'bg-[#C8A96A] text-[#102419]'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+              title="Modo Normal (▶)"
+            >
+              <Play className="w-2.5 h-2.5 fill-current" />
+              <span>Normal</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onChangePlaybackMode('pingpong')}
+              className={`min-h-[32px] px-2 rounded-lg text-[10px] font-bold transition active:scale-95 touch-manipulation flex items-center gap-1 ${
+                playbackMode === 'pingpong'
+                  ? 'bg-[#C8A96A] text-[#102419]'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+              title="Modo Ping-Pong (⇄)"
+            >
+              <ArrowLeftRight className="w-3 h-3" />
+              <span>Ping-Pong</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onChangePlaybackMode('reverse')}
+              className={`min-h-[32px] px-2 rounded-lg text-[10px] font-bold transition active:scale-95 touch-manipulation flex items-center gap-1 ${
+                playbackMode === 'reverse'
+                  ? 'bg-[#C8A96A] text-[#102419]'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+              title="Modo Reversa (◀)"
+            >
+              <RotateCcw className="w-2.5 h-2.5" />
+              <span>Reversa</span>
+            </button>
+          </div>
+        )}
 
         {/* FPS selector presets */}
         <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/10">

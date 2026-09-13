@@ -61,6 +61,8 @@ interface CanvasAreaProps {
   ditheringPattern?: 'checkerboard' | 'bayer' | '25%' | '50%' | '75%' | 'lines' | 'cross' | 'noise';
   cloneSource?: { x: number; y: number } | null;
   onChangeCloneSource?: (source: { x: number; y: number } | null) => void;
+  isSelectingCloneSource?: boolean;
+  onExitSelectCloneSource?: () => void;
   onSelectionChange?: (selection: SelectionState) => void;
   activeStamp?: { pixels: string[]; width: number; height: number; name: string } | null;
   onClearActiveStamp?: () => void;
@@ -129,6 +131,8 @@ const CanvasArea = React.memo(function CanvasArea({
   ditheringPattern = 'checkerboard',
   cloneSource,
   onChangeCloneSource,
+  isSelectingCloneSource = false,
+  onExitSelectCloneSource,
   onSelectionChange,
   activeStamp,
   onClearActiveStamp,
@@ -2947,11 +2951,14 @@ const CanvasArea = React.memo(function CanvasArea({
       }
     }
 
-    // Alt + click to capture Clone Stamp source
-    if (e.altKey && currentTool === 'clone_stamp') {
+    // Alt + click OR touch mode when isSelectingCloneSource is true to capture Clone Stamp source
+    if ((e.altKey || isSelectingCloneSource) && currentTool === 'clone_stamp') {
       onChangeCloneSource?.(coord);
       cloneStartOffsetRef.current = null;
       showToast?.(translate('canvas.cloneStampSourceSet', language).replace('{x}', String(coord.x)).replace('{y}', String(coord.y)), 'success');
+      if (isSelectingCloneSource) {
+        onExitSelectCloneSource?.();
+      }
       return;
     }
 
@@ -4263,6 +4270,33 @@ const CanvasArea = React.memo(function CanvasArea({
       </div>
 
       {/* Floating STAMP & PATTERN controls removed: migrated to OptionBar */}
+
+      {/* Floating Clone Stamp Source Selection Indicator */}
+      {isSelectingCloneSource && currentTool === 'clone_stamp' && (
+        <div 
+          className="absolute top-4 left-1/2 -translate-x-1/2 z-40 bg-[#102419]/95 border-2 border-[#C8A96A] text-white px-4 py-2 rounded-2xl shadow-2xl flex items-center gap-3 backdrop-blur-md animate-bounce"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="w-2.5 h-2.5 rounded-full bg-[#C8A96A] animate-ping shrink-0" />
+          <span className="text-xs font-bold text-slate-100 whitespace-nowrap">
+            {language === 'es' ? 'Toca el lienzo para fijar el origen' : 'Tap canvas to set clone origin'}
+          </span>
+          {onExitSelectCloneSource && (
+            <button 
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onExitSelectCloneSource();
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+              className="ml-1 text-[11px] font-bold bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded-xl text-slate-300 hover:text-white transition active:scale-95 touch-manipulation cursor-pointer"
+            >
+              {translate('common.cancel', language) || 'Cancelar'}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Floating info panel */}
       <div className="absolute left-2 sm:left-4 top-2 sm:top-4 bg-[#102419]/90 backdrop-blur-xs border border-[#102419] px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[9px] sm:text-[10px] text-slate-400 flex flex-wrap gap-2 sm:gap-4 pointer-events-none max-w-[calc(100vw-32px)]">

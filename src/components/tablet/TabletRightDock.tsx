@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Palette, Layers, Eye, ChevronRight, ChevronLeft } from 'lucide-react';
 import { PixelProject, LanguageCode } from '../../types';
+import { translate } from '../../i18n';
 import ColorPanel from '../ColorPanel';
 import LayerManager from '../LayerManager';
 import PreviewPanel from '../PreviewPanel';
@@ -129,41 +130,44 @@ export const TabletRightDock: React.FC<TabletRightDockProps> = React.memo(functi
         <div className="flex items-center bg-[#0b1b12] border-b border-[#1b3d2b] p-1 gap-1 shrink-0">
           <button
             onClick={() => setActiveTab('color')}
-            className={`flex-1 min-h-[38px] h-[38px] rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all duration-150 cursor-pointer touch-manipulation active:scale-95 ${
+            className={`flex-1 min-h-[42px] h-[42px] rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all duration-150 cursor-pointer touch-manipulation active:scale-95 ${
               activeTab === 'color'
                 ? 'bg-[#0F3D34] text-[#C8A96A] border border-[#C8A96A]/50 shadow-md font-extrabold'
                 : 'bg-transparent text-slate-400 hover:text-slate-200 hover:bg-[#153022]'
             }`}
+            title={translate('common.color', language) || 'Color'}
           >
             <Palette className="w-4 h-4" />
-            <span>Color</span>
+            <span>{translate('common.color', language) || 'Color'}</span>
           </button>
 
           <button
             onClick={() => setActiveTab('layers')}
-            className={`flex-1 min-h-[38px] h-[38px] rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all duration-150 cursor-pointer touch-manipulation active:scale-95 ${
+            className={`flex-1 min-h-[42px] h-[42px] rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all duration-150 cursor-pointer touch-manipulation active:scale-95 ${
               activeTab === 'layers'
                 ? 'bg-[#0F3D34] text-[#C8A96A] border border-[#C8A96A]/50 shadow-md font-extrabold'
                 : 'bg-transparent text-slate-400 hover:text-slate-200 hover:bg-[#153022]'
             }`}
+            title={translate('layers.title', language) || 'Capas'}
           >
             <Layers className="w-4 h-4" />
-            <span>Capas</span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-[#102419] text-[#C8A96A] border border-[#C8A96A]/30">
+            <span>{translate('layers.title', language) || 'Capas'}</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#102419] text-[#C8A96A] border border-[#C8A96A]/30 font-mono font-bold">
               {layersCount}
             </span>
           </button>
 
           <button
             onClick={() => setActiveTab('preview')}
-            className={`flex-1 min-h-[38px] h-[38px] rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all duration-150 cursor-pointer touch-manipulation active:scale-95 ${
+            className={`flex-1 min-h-[42px] h-[42px] rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all duration-150 cursor-pointer touch-manipulation active:scale-95 ${
               activeTab === 'preview'
                 ? 'bg-[#0F3D34] text-[#C8A96A] border border-[#C8A96A]/50 shadow-md font-extrabold'
                 : 'bg-transparent text-slate-400 hover:text-slate-200 hover:bg-[#153022]'
             }`}
+            title={translate('preview.title', language) || 'Preview'}
           >
             <Eye className="w-4 h-4" />
-            <span>Preview</span>
+            <span>{translate('preview.title', language) || 'Preview'}</span>
           </button>
         </div>
 
@@ -243,10 +247,11 @@ export const TabletRightDock: React.FC<TabletRightDockProps> = React.memo(functi
       {/* Toggle Handle Button to open/collapse dock */}
       <button
         onClick={onToggleOpen}
-        className="absolute top-1/2 -translate-y-1/2 -left-4 w-4 h-14 bg-[#102419] hover:bg-[#1b3d2b] border-y border-l border-[#1b3d2b] text-slate-400 hover:text-white rounded-l-lg flex items-center justify-center cursor-pointer z-30 transition-all duration-150 shadow-lg touch-manipulation"
-        title={isOpen ? "Ocultar panel lateral" : "Mostrar panel lateral"}
+        className="absolute top-1/2 -translate-y-1/2 -left-5 w-5 h-16 bg-[#102419] hover:bg-[#1b3d2b] border-y border-l border-[#1b3d2b] text-[#C8A96A] hover:text-white rounded-l-xl flex items-center justify-center cursor-pointer z-40 transition-all duration-150 shadow-2xl touch-manipulation active:scale-95"
+        title={isOpen ? (translate('headerMenu.hidePanel', language as any) || "Ocultar panel lateral") : (translate('headerMenu.showPanel', language as any) || "Mostrar panel lateral")}
+        aria-label={isOpen ? "Ocultar panel lateral" : "Mostrar panel lateral"}
       >
-        {isOpen ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
+        {isOpen ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
       </button>
     </div>
   );

@@ -59,7 +59,6 @@ import AssetLibraryModal from './components/AssetLibraryModal';
 import WindowSystemDialogs from './components/WindowSystemDialogs';
 import { OnePixelIcon, OnePixelLogo, OnePixelStartupAnimation } from './branding';
 import { MobileQuickBar } from './components/mobile/MobileQuickBar';
-import { MobileTimeline } from './components/mobile/MobileTimeline';
 import { MobileDrawer } from './components/mobile/MobileDrawer';
 import { TabletToolbar } from './components/tablet/TabletToolbar';
 import { TabletRightDock } from './components/tablet/TabletRightDock';
@@ -855,6 +854,7 @@ export default function App() {
     return (saved as any) || 'checkerboard';
   });
   const [cloneSource, setCloneSource] = useState<{ x: number; y: number } | null>(null);
+  const [isSelectingCloneSource, setIsSelectingCloneSource] = useState<boolean>(false);
   const [bucketContiguous, setBucketContiguous] = useState<boolean>(() => {
     const saved = localStorage.getItem('onepixel_tool_bucketContiguous');
     return saved !== null ? saved === 'true' : true;
@@ -4315,11 +4315,12 @@ export default function App() {
               onChangeStampFlipV={setStampFlipV}
               patternMode={patternMode}
               onChangePatternMode={setPatternMode}
+              isTablet={awe.isTablet}
             />
           )}
           
           {/* Main drawing canvas area (centered, most highlighted component) */}
-          <div className={`flex-1 min-h-0 w-full flex flex-col ${awe.isMobile ? (isMobileTimelineOpen ? 'pb-48' : 'pb-28') : ''}`}>
+          <div className={`flex-1 min-h-0 w-full flex flex-col ${awe.isMobile ? (isMobileTimelineOpen ? 'pb-56' : 'pb-28') : ''}`}>
             <CanvasBoundary>
               {(!project || !project.frames || project.frames.length === 0 || tabs.length === 0) ? (
                 <EmptyWorkspace 
@@ -4359,6 +4360,8 @@ export default function App() {
                   ditheringPattern={ditheringPattern}
                   cloneSource={cloneSource}
                   onChangeCloneSource={setCloneSource}
+                  isSelectingCloneSource={isSelectingCloneSource}
+                  onExitSelectCloneSource={() => setIsSelectingCloneSource(false)}
                   activeStamp={activeStamp}
                   onClearActiveStamp={() => setActiveStamp(null)}
                   activeBrush={activeBrush}
@@ -4513,7 +4516,7 @@ export default function App() {
           className={`${awe.isMobile ? 'hidden' : 'block'} w-full relative transition-all duration-300 ease-in-out shrink-0`}
           style={{
             height: timelineVisible ? 'auto' : '0px',
-            maxHeight: timelineVisible ? '500px' : '0px',
+            maxHeight: timelineVisible ? (awe.isTablet ? '220px' : '500px') : '0px',
             marginTop: timelineVisible ? '2px' : '0px',
             overflow: timelineVisible ? 'visible' : 'hidden'
           }}
@@ -4571,6 +4574,7 @@ export default function App() {
               onUpdateTag={handleUpdateTag}
               onDeleteTag={handleDeleteTag}
               language={preferences.language}
+              isTablet={awe.isTablet}
             />
           </div>
 
@@ -4597,6 +4601,8 @@ export default function App() {
           recentColors={recentColors}
           onOpenPanel={setActiveMobilePanel}
           activePanel={activeMobilePanel}
+          activeStamp={activeStamp}
+          onClearActiveStamp={() => setActiveStamp(null)}
           onToggleTimeline={() => {
             const nextState = !isMobileTimelineOpen;
             setIsMobileTimelineOpen(nextState);
@@ -4611,6 +4617,8 @@ export default function App() {
           selectedFrameId={selectedFrameId}
           onSelectFrame={setSelectedFrameId}
           onAddFrame={handleAddFrame}
+          onDeleteFrame={handleDeleteFrame}
+          onDuplicateFrame={handleDuplicateFrame}
           isPlaying={isPlaying}
           onTogglePlay={handleTogglePlay}
           fps={project?.fps || 12}
@@ -4619,6 +4627,8 @@ export default function App() {
           onToggleOnionSkin={handleToggleOnionSkin}
           loopEnabled={loopEnabled}
           onToggleLoop={handleToggleLoop}
+          playbackMode={playbackMode}
+          onChangePlaybackMode={setPlaybackMode}
         />
       )}
 
@@ -4638,6 +4648,48 @@ export default function App() {
           onChangeTiling={setTiling}
           pixelPerfect={pixelPerfect}
           onChangePixelPerfect={setPixelPerfect}
+          activeBrush={activeBrush}
+          onChangeActiveBrush={setActiveBrush}
+          sprayDensity={sprayDensity}
+          onChangeSprayDensity={setSprayDensity}
+          sprayRandomness={sprayRandomness}
+          onChangeSprayRandomness={setSprayRandomness}
+          sprayShape={sprayShape}
+          onChangeSprayShape={setSprayShape}
+          ditheringPattern={ditheringPattern}
+          onChangeDitheringPattern={setDitheringPattern}
+          cloneSource={cloneSource}
+          onChangeCloneSource={setCloneSource}
+          isSelectingCloneSource={isSelectingCloneSource}
+          onStartSelectCloneSource={() => {
+            setIsSelectingCloneSource(true);
+            setActiveMobilePanel(null);
+          }}
+          bucketContiguous={bucketContiguous}
+          onChangeBucketContiguous={setBucketContiguous}
+          bucketRefer={bucketRefer}
+          onChangeBucketRefer={setBucketRefer}
+          tolerance={tolerance}
+          onChangeTolerance={setTolerance}
+          fillShape={fillShape}
+          onChangeFillShape={setFillShape}
+          selectionActive={activeSelection.active}
+          onClearSelection={() => triggerSelection('deselect')}
+          onInvertSelection={() => triggerSelection('invert')}
+          onSaveAsStamp={() => setIsCaptureModalOpen(true)}
+          onOpenAssetLibrary={() => setAssetLibraryOpen(true)}
+          activeStamp={activeStamp}
+          onClearActiveStamp={() => setActiveStamp(null)}
+          stampScale={stampScale}
+          onChangeStampScale={setStampScale}
+          stampRotation={stampRotation}
+          onChangeStampRotation={setStampRotation}
+          stampFlipH={stampFlipH}
+          onChangeStampFlipH={setStampFlipH}
+          stampFlipV={stampFlipV}
+          onChangeStampFlipV={setStampFlipV}
+          patternMode={patternMode}
+          onChangePatternMode={setPatternMode}
           layers={project?.layers || []}
           selectedLayerId={selectedLayerId}
           onSelectLayer={setSelectedLayerId}
@@ -4881,78 +4933,84 @@ export default function App() {
 
       {/* About Modal */}
       {aboutOpen && (
-        <div className="fixed inset-0 bg-[#0F3D34]/80 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-[#0F3D34]/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50">
           <motion.div 
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-[#102419] border border-[#0F3D34] rounded-2xl p-6 max-w-xl w-full text-slate-200 text-center shadow-2xl relative overflow-hidden"
+            className="bg-[#102419] border border-[#0F3D34] rounded-2xl p-4 sm:p-6 max-w-xl w-full text-slate-200 text-center shadow-2xl relative max-h-[90dvh] sm:max-h-[85vh] flex flex-col items-center min-h-0 overflow-hidden"
           >
-            <div className="flex items-center justify-center mb-3 overflow-x-auto no-scrollbar py-1">
-              <OnePixelLogo height={48} />
-            </div>
-            <span className="text-[10px] text-[#C8A96A] font-mono tracking-widest uppercase">Versión Oficial v1.2.0</span>
-            <p className="text-xs text-slate-300 my-4 leading-relaxed font-sans">
-              Un potente editor de pixel art y animación diseñado para la web moderna. Construido con la filosofía donde todo dibujo nace de un único píxel.
-            </p>
-            <div className="text-[10px] font-mono text-slate-400 mb-3 bg-[#0F3D34] py-1.5 px-3 rounded-lg border border-[#102419]/50">
-              Paleta: Estratos Marinos (60/30/10)
+            {/* Scrollable body with min-h-0 */}
+            <div className="flex-1 min-h-0 w-full overflow-y-auto scrollbar-thin flex flex-col items-center px-1">
+              <div className="flex items-center justify-center mb-3 overflow-x-auto no-scrollbar py-1">
+                <OnePixelLogo height={48} />
+              </div>
+              <span className="text-[10px] text-[#C8A96A] font-mono tracking-widest uppercase">Versión Oficial v1.2.0</span>
+              <p className="text-xs text-slate-300 my-4 leading-relaxed font-sans">
+                Un potente editor de pixel art y animación diseñado para la web moderna. Construido con la filosofía donde todo dibujo nace de un único píxel.
+              </p>
+              <div className="text-[10px] font-mono text-slate-400 mb-3 bg-[#0F3D34] py-1.5 px-3 rounded-lg border border-[#102419]/50">
+                Paleta: Estratos Marinos (60/30/10)
+              </div>
+
+              {/* Legal quick navigation links */}
+              <div className="flex flex-wrap items-center justify-center gap-2 mb-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLegalInitialSection('terms');
+                    setLegalOpen(true);
+                  }}
+                  className="text-[11px] text-[#C8A96A] hover:text-[#d9bb7c] hover:underline px-2.5 py-1 rounded-lg bg-[#0F3D34]/70 border border-[#C8A96A]/30 transition flex items-center gap-1 cursor-pointer"
+                >
+                  <span>{translate('legal.navTerms', preferences.language) || 'Términos de uso'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLegalInitialSection('privacy');
+                    setLegalOpen(true);
+                  }}
+                  className="text-[11px] text-[#C8A96A] hover:text-[#d9bb7c] hover:underline px-2.5 py-1 rounded-lg bg-[#0F3D34]/70 border border-[#C8A96A]/30 transition flex items-center gap-1 cursor-pointer"
+                >
+                  <span>{translate('legal.navPrivacy', preferences.language) || 'Privacidad'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLegalInitialSection('licenses');
+                    setLegalOpen(true);
+                  }}
+                  className="text-[11px] text-[#C8A96A] hover:text-[#d9bb7c] hover:underline px-2.5 py-1 rounded-lg bg-[#0F3D34]/70 border border-[#C8A96A]/30 transition flex items-center gap-1 cursor-pointer"
+                >
+                  <span>{translate('legal.navLicenses', preferences.language) || 'Licencias Open Source'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLegalInitialSection('intellectual_property');
+                    setLegalOpen(true);
+                  }}
+                  className="text-[11px] text-slate-300 hover:text-white hover:underline px-2.5 py-1 rounded-lg bg-[#0F3D34]/70 border border-slate-700/50 transition flex items-center gap-1 cursor-pointer"
+                >
+                  <span>{translate('legal.navLegal', preferences.language) || 'Información Legal'}</span>
+                </button>
+              </div>
             </div>
 
-            {/* Legal quick navigation links */}
-            <div className="flex flex-wrap items-center justify-center gap-2 mb-4 pt-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setLegalInitialSection('terms');
-                  setLegalOpen(true);
-                }}
-                className="text-[11px] text-[#C8A96A] hover:text-[#d9bb7c] hover:underline px-2.5 py-1 rounded-lg bg-[#0F3D34]/70 border border-[#C8A96A]/30 transition flex items-center gap-1 cursor-pointer"
-              >
-                <span>{translate('legal.navTerms', preferences.language) || 'Términos de uso'}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setLegalInitialSection('privacy');
-                  setLegalOpen(true);
-                }}
-                className="text-[11px] text-[#C8A96A] hover:text-[#d9bb7c] hover:underline px-2.5 py-1 rounded-lg bg-[#0F3D34]/70 border border-[#C8A96A]/30 transition flex items-center gap-1 cursor-pointer"
-              >
-                <span>{translate('legal.navPrivacy', preferences.language) || 'Privacidad'}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setLegalInitialSection('licenses');
-                  setLegalOpen(true);
-                }}
-                className="text-[11px] text-[#C8A96A] hover:text-[#d9bb7c] hover:underline px-2.5 py-1 rounded-lg bg-[#0F3D34]/70 border border-[#C8A96A]/30 transition flex items-center gap-1 cursor-pointer"
-              >
-                <span>{translate('legal.navLicenses', preferences.language) || 'Licencias Open Source'}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setLegalInitialSection('intellectual_property');
-                  setLegalOpen(true);
-                }}
-                className="text-[11px] text-slate-300 hover:text-white hover:underline px-2.5 py-1 rounded-lg bg-[#0F3D34]/70 border border-slate-700/50 transition flex items-center gap-1 cursor-pointer"
-              >
-                <span>{translate('legal.navLegal', preferences.language) || 'Información Legal'}</span>
-              </button>
-            </div>
-
-            <div className="flex gap-2 w-full mt-2">
+            {/* Pinned actions always visible and accessible */}
+            <div className="flex gap-2 w-full mt-3 pt-2 border-t border-white/10 shrink-0">
               <button 
+                type="button"
                 onClick={() => { setAboutOpen(false); setDonationOpen(true); }}
-                className="flex-1 py-2 bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/40 rounded-xl text-xs font-semibold text-rose-300 flex items-center justify-center gap-1.5 transition shadow-sm active:scale-95"
+                className="flex-1 min-h-[42px] py-2 bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/40 rounded-xl text-xs font-semibold text-rose-300 flex items-center justify-center gap-1.5 transition shadow-sm active:scale-95 touch-manipulation cursor-pointer"
               >
                 <Heart className="w-3.5 h-3.5 text-rose-400 fill-rose-400/30" />
                 <span>Apoyar el proyecto</span>
               </button>
               <button 
+                type="button"
                 onClick={() => setAboutOpen(false)}
-                className="flex-1 py-2 bg-[#102419] hover:bg-[#152e20] border border-[#102419] rounded-xl text-xs font-bold text-white transition shadow-md active:scale-95"
+                className="flex-1 min-h-[42px] py-2 bg-[#102419] hover:bg-[#152e20] border border-[#102419] rounded-xl text-xs font-bold text-white transition shadow-md active:scale-95 touch-manipulation cursor-pointer"
               >
                 Cerrar
               </button>

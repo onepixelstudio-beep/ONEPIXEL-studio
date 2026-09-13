@@ -23,7 +23,8 @@ export const ja: TranslationSchema = {
     "save": "保存",
     "apply": "適用",
     "error": "エラー",
-    "duplicate": "複製"
+    "duplicate": "複製",
+    "options": "オプション"
   },
   "preferences": {
     "title": "システム環境設定",

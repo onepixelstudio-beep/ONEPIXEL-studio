@@ -995,9 +995,17 @@ const HeaderMenu = React.memo(function HeaderMenu({
           language={language}
           onNewProject={() => setNewModalOpen(true)}
           onOpenProject={() => handleOpenProjectClick()}
+          onImportProject={() => importFileInputRef.current?.click()}
+          onOpenLibrary={onOpenLibrary}
+          onOpenAssetLibrary={onOpenAssetLibrary}
           onOpenRecent={() => setRecentModalOpen(true)}
           onSaveProject={onSaveProject}
           onSaveAsProject={onSaveAsProject}
+          onExportProjectJson={onExportProjectJson}
+          onQuickExport={onQuickExport}
+          onCloseProject={onCloseProject}
+          onCloseAllProjects={onCloseAllProjects}
+          onExitApplication={onExitApplication}
           onExportPng={() => onOpenExport()}
           onExportGif={() => onOpenExport()}
           onExportZip={() => onOpenExport()}
@@ -1005,26 +1013,58 @@ const HeaderMenu = React.memo(function HeaderMenu({
           onScaleSprite={() => setScaleModalOpen(true)}
           onOpenPreferences={onPreferencesClick}
           onOpenHelp={() => onHelpClick?.('manual')}
+          onOpenLegal={onLegalClick}
+          onOpenDonation={onDonateClick}
+          onStartTour={onStartTour}
+          onDiagnosticsClick={onDiagnosticsClick}
           onOpenAbout={onAboutClick}
+          onWelcomeClick={onWelcomeClick}
+          onSaveOriginalPattern={() => {
+            setSavePatternName(`Patrón Original ${Date.now().toString().slice(-4)}`);
+            setSavePatternModalOpen(true);
+          }}
           onCutSelection={onCutSelection}
           onCopySelection={onCopySelection}
           onPasteSelection={onPasteSelection}
           onSelectAll={onSelectAll}
           onDeselect={onDeselect}
           onInvertSelection={onInvertSelection}
+          onSelectByColor={onSelectByColor}
+          onFillSelection={onFillSelection}
+          onExpandSelection={onExpandSelection}
+          onContractSelection={onContractSelection}
+          onCropToSelection={onCropToSelection}
           onMirrorLayer={() => onMirrorLayer('horizontal')}
+          onMirrorLayerVertical={() => onMirrorLayer('vertical')}
           onClearLayer={onClearLayer}
           onRotateSprite={() => onRotateSprite(90)}
+          onRotateSprite180={() => onRotateSprite(180)}
           onInvertColors={onInvertColors}
+          onPatternsClick={onPatternsClick}
           onToggleOnionSkin={onToggleOnionSkin}
           onionSkinEnabled={onionSkinEnabled}
           onToggleTiling={onToggleTiling}
           tilingActive={tilingActive}
           onToggleSymmetry={onToggleSymmetry}
           symmetryActive={symmetryActive}
+          guidesVisible={guidesVisible}
+          guidesLocked={guidesLocked}
+          rulersVisible={rulersVisible}
+          snappingEnabled={snappingEnabled}
+          onToggleGuides={onToggleGuides}
+          onToggleGuidesLocked={onToggleGuidesLocked}
+          onToggleRulers={onToggleRulers}
+          onToggleSnapping={onToggleSnapping}
+          onClearGuides={onClearGuides}
           onTogglePlay={onTogglePlay}
           isPlaying={isPlaying}
+          playbackMode={playbackMode}
+          onChangePlaybackMode={onChangePlaybackMode}
           onAddFrame={onAddFrame}
+          onDuplicateFrame={() => onDuplicateFrame(currentFrameId)}
+          onDeleteFrame={onDeleteFrame}
+          onNextFrame={onNextFrame}
+          onPrevFrame={onPrevFrame}
           onZoomIn={onZoomIn}
           onZoomOut={onZoomOut}
         />

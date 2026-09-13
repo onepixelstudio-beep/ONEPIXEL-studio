@@ -841,15 +841,15 @@ export default function PatternsModal({
   const getPatternName = (p: PatternItem) => (p.nameKey ? translate(p.nameKey as any, language as any) : p.name);
 
   return (
-    <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 backdrop-blur-xs" id="patterns-modal-container">
-      <div className="bg-[#102419] border border-[#102419] rounded-2xl w-full max-w-4xl h-[620px] flex flex-col shadow-[0_24px_64px_rgba(0,0,0,0.8)] animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-2 sm:p-4 backdrop-blur-xs" id="patterns-modal-container">
+      <div className="bg-[#102419] border border-[#102419] rounded-2xl w-full max-w-4xl h-[94dvh] sm:h-[620px] max-h-[720px] flex flex-col shadow-[0_24px_64px_rgba(0,0,0,0.8)] animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
         
         {/* Header */}
-        <div className="px-6 py-4 border-b border-[#102419] flex items-center justify-between">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-[#102419] flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
             <Layers className="w-5 h-5 text-[#C8A96A]" />
             <div>
-              <h3 className="text-sm font-bold text-white leading-none">{translate('patternsModal.title', language as any)}</h3>
+              <h3 className="text-xs sm:text-sm font-bold text-white leading-none">{translate('patternsModal.title', language as any)}</h3>
               <p className="text-[10px] text-slate-400 mt-1 font-mono">{translate('patternsModal.subtitle', language as any)}</p>
             </div>
           </div>
@@ -862,33 +862,32 @@ export default function PatternsModal({
         </div>
 
         {/* Content body layout */}
-        <div className="flex-1 min-h-0 flex overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
           
-          {/* Left Categories Sidebar */}
-          <div className="w-52 border-r border-[#102419] bg-[#102419]/80 py-3 overflow-y-auto flex flex-col justify-between">
-            <div className="space-y-0.5 px-2">
-              <span className="text-[9px] font-extrabold text-slate-400 px-2.5 uppercase tracking-wider block mb-1">{translate('patternsModal.presets', language as any)}</span>
+          {/* Left Categories Sidebar - scrollable horizontal on mobile */}
+          <div className="w-full md:w-52 border-b md:border-b-0 md:border-r border-[#102419] bg-[#102419]/80 p-2 md:py-3 overflow-x-auto md:overflow-y-auto flex md:flex-col justify-between shrink-0 no-scrollbar gap-1.5">
+            <div className="flex md:flex-col gap-1 md:space-y-0.5 px-1 md:px-2 shrink-0">
+              <span className="hidden md:block text-[9px] font-extrabold text-slate-400 px-2.5 uppercase tracking-wider mb-1">{translate('patternsModal.presets', language as any)}</span>
               {PRESET_CATEGORIES.map(cat => (
                 <button
                   key={cat.id}
                   onClick={() => setActiveCategory(cat.id)}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-between transition ${
+                  className={`text-left px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs font-semibold flex items-center justify-between gap-2 transition whitespace-nowrap shrink-0 ${
                     activeCategory === cat.id 
                       ? 'bg-[#102419] text-[#C8A96A] border border-[#C8A96A]/30' 
                       : 'hover:bg-[#102419] text-slate-300'
                   }`}
                 >
                   <span>{translate(cat.nameKey as any, language as any)}</span>
-                  <span className="text-[8px] opacity-60 font-mono">{translate('patternsModal.variationsCount', language as any, { count: 5 })}</span>
+                  <span className="text-[8px] opacity-60 font-mono hidden md:inline">{translate('patternsModal.variationsCount', language as any, { count: 5 })}</span>
                 </button>
               ))}
 
-              <div className="h-px bg-[#102419] my-2" />
+              <div className="hidden md:block h-px bg-[#102419] my-2" />
               
-              <span className="text-[9px] font-extrabold text-slate-400 px-2.5 uppercase tracking-wider block mb-1">{translate('patternsModal.yourCreations', language as any)}</span>
               <button
                 onClick={() => setActiveCategory('custom')}
-                className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-between transition ${
+                className={`text-left px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs font-semibold flex items-center justify-between gap-2 transition whitespace-nowrap shrink-0 ${
                   activeCategory === 'custom' 
                     ? 'bg-[#102419] text-[#C8A96A] border border-[#C8A96A]/30' 
                     : 'hover:bg-[#102419] text-slate-300'
@@ -961,10 +960,10 @@ export default function PatternsModal({
           </div>
 
           {/* Central grid & Right detailed preview layout */}
-          <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
             
             {/* Grid of variations */}
-            <div className="flex-1 p-5 overflow-y-auto">
+            <div className="flex-1 p-3 sm:p-5 overflow-y-auto min-h-0">
               <div className="flex items-center justify-between mb-4">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">
                   {activeCategory === 'custom' 
@@ -975,24 +974,24 @@ export default function PatternsModal({
               </div>
 
               {currentCategoryPatterns.length === 0 ? (
-                <div className="h-64 flex flex-col items-center justify-center text-center border border-dashed border-[#102419] rounded-2xl p-6 bg-[#102419]/10">
+                <div className="h-48 sm:h-64 flex flex-col items-center justify-center text-center border border-dashed border-[#102419] rounded-2xl p-4 sm:p-6 bg-[#102419]/10">
                   <p className="text-xs text-slate-400">{translate('patternsModal.noPatterns', language as any)}</p>
                   <p className="text-[10px] text-slate-500 mt-2 max-w-xs">{translate('patternsModal.noPatternsDesc', language as any)}</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
                   {currentCategoryPatterns.map(p => (
                     <div
                       key={p.id}
                       onClick={() => setSelectedPattern(p)}
-                      className={`relative group p-2.5 rounded-xl border cursor-pointer transition flex flex-col items-center justify-center ${
+                      className={`relative group p-2 sm:p-2.5 rounded-xl border cursor-pointer transition flex flex-col items-center justify-center ${
                         selectedPattern?.id === p.id 
                           ? 'bg-[#102419] border-[#C8A96A] shadow-md' 
                           : 'bg-[#102419]/60 border-[#102419] hover:border-[#102419] hover:bg-[#102419]'
                       }`}
                     >
                       {/* Repeating Canvas preview */}
-                      <div className="w-[50px] h-[50px] rounded bg-[#102419] border border-[#102419] flex items-center justify-center overflow-hidden mb-2">
+                      <div className="w-[46px] h-[46px] sm:w-[50px] sm:h-[50px] rounded bg-[#102419] border border-[#102419] flex items-center justify-center overflow-hidden mb-1.5 sm:mb-2">
                         <canvas
                           ref={el => { previewCanvasRefs.current[p.id] = el; }}
                           width={48}
@@ -1023,7 +1022,7 @@ export default function PatternsModal({
             </div>
 
             {/* Right Detailed Preview Box */}
-            <div className="w-64 border-l border-[#102419] bg-[#102419]/80 p-5 flex flex-col justify-between overflow-y-auto">
+            <div className="w-full md:w-64 border-t md:border-t-0 md:border-l border-[#102419] bg-[#102419]/80 p-3.5 sm:p-5 flex flex-col justify-between overflow-y-auto shrink-0">
               {selectedPattern ? (
                 <div className="space-y-4">
                   <div>

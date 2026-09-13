@@ -24,6 +24,7 @@ export interface TranslationSchema {
     apply: string;
     error: string;
     duplicate: string;
+    options: string;
   };
   preferences: {
     title: string;

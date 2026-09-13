@@ -621,7 +621,7 @@ export default function ExportModal({
       aria-modal="true"
       aria-labelledby="export-modal-title"
     >
-      <div className="relative bg-[#0F101E] border border-[#23253F] rounded-2xl w-full max-w-5xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
+      <div className="relative bg-[#0F101E] border border-[#23253F] rounded-2xl w-full max-w-5xl overflow-hidden shadow-2xl flex flex-col max-h-[92dvh] sm:max-h-[92vh]">
         
         {/* Progress Overlay */}
         {exportProgress && (
@@ -666,7 +666,7 @@ export default function ExportModal({
         )}
 
         {/* Header */}
-        <div className="p-4 border-b border-[#23253F] flex items-center justify-between bg-[#0B0C15]">
+        <div className="p-4 border-b border-[#23253F] flex items-center justify-between bg-[#0B0C15] shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-[#C8A96A]/10 border border-[#C8A96A]/25 rounded-xl">
               <Download className="text-[#C8A96A] w-5 h-5 animate-pulse" />
@@ -686,7 +686,7 @@ export default function ExportModal({
         </div>
 
         {/* Category Tab Selector */}
-        <div className="flex border-b border-[#23253F] bg-[#0E0F1A] p-1.5 gap-1.5">
+        <div className="flex border-b border-[#23253F] bg-[#0E0F1A] p-1.5 gap-1.5 overflow-x-auto no-scrollbar shrink-0">
           {tabsList.map((tab) => {
             const Icon = tab.icon || FileImage;
             const isActive = activeTab === tab.id;
@@ -694,24 +694,24 @@ export default function ExportModal({
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 px-2 rounded-xl text-xs font-semibold transition focus:ring-2 focus:ring-[#C8A96A] outline-none ${
+                className={`flex-1 min-w-[75px] shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 px-2 rounded-xl text-xs font-semibold transition focus:ring-2 focus:ring-[#C8A96A] outline-none ${
                   isActive
                     ? 'bg-[#C8A96A]/20 text-[#C8A96A] border border-[#C8A96A]/30 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]'
                     : 'text-slate-400 hover:text-white hover:bg-[#16172B]'
                 }`}
               >
-                <Icon className="w-4 h-4" />
-                <span>{tab.label}</span>
+                <Icon className="w-4 h-4 shrink-0" />
+                <span className="truncate">{tab.label}</span>
               </button>
             );
           })}
         </div>
 
         {/* Workspace Panels */}
-        <div className="flex flex-1 overflow-hidden min-h-0">
+        <div className="flex flex-col md:flex-row flex-1 overflow-y-auto md:overflow-hidden min-h-0">
           
           {/* Left Column: Formats List & Custom Options */}
-          <div className="w-1/2 p-5 overflow-y-auto border-r border-[#23253F]/60 space-y-5 max-h-[58vh] scrollbar-thin">
+          <div className="w-full md:w-1/2 p-3 sm:p-5 overflow-y-auto border-b md:border-b-0 md:border-r border-[#23253F]/60 space-y-4 sm:space-y-5 max-h-none md:max-h-[58vh] scrollbar-thin">
             
             {/* Formats Selection */}
             <div className="space-y-3">
@@ -997,7 +997,7 @@ export default function ExportModal({
           </div>
 
           {/* Right Column: Interactive Live Work Preview, Stats, Sandbox */}
-          <div className="w-1/2 p-5 bg-[#102419] overflow-y-auto space-y-5 max-h-[58vh] scrollbar-thin flex flex-col justify-between">
+          <div className="w-full md:w-1/2 p-3 sm:p-5 bg-[#102419] overflow-y-auto space-y-4 sm:space-y-5 max-h-none md:max-h-[58vh] scrollbar-thin flex flex-col justify-between">
             
             {/* Live Preview Monitor Panel */}
             <div className="bg-[#102419] border border-[#102419] rounded-2xl p-4 flex flex-col gap-4">
@@ -1275,7 +1275,7 @@ export default function ExportModal({
         </div>
 
         {/* Footer actions */}
-        <div className="p-4 border-t border-[#102419] bg-[#102419] flex gap-3.5">
+        <div className="p-4 border-t border-[#102419] bg-[#102419] flex gap-3.5 shrink-0">
           <button
             onClick={handleCloseModal}
             className="flex-1 py-3 bg-[#102419] hover:bg-[#102419] rounded-xl text-xs font-semibold text-slate-200 border border-[#102419] transition outline-none"

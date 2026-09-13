@@ -75,7 +75,7 @@ export const DonationModal: React.FC<DonationModalProps> = ({
   return (
     <div 
       id="donation-modal-overlay"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-200"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -85,22 +85,22 @@ export const DonationModal: React.FC<DonationModalProps> = ({
     >
       <div 
         id="donation-modal-container"
-        className="w-full max-w-lg bg-[#111e17] border border-[#1b3d2b] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] text-zinc-100"
+        className="w-full max-w-lg bg-[#111e17] border border-[#1b3d2b] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[94dvh] sm:max-h-[92vh] text-zinc-100"
       >
         {/* Header */}
-        <div className="px-6 py-5 border-b border-[#1b3d2b] flex items-center justify-between bg-[#0b1610]">
+        <div className="px-4 sm:px-6 py-3.5 sm:py-5 border-b border-[#1b3d2b] flex items-center justify-between bg-[#0b1610] shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0 shadow-inner">
-              <Heart className="w-5 h-5 fill-rose-500/30" />
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0 shadow-inner">
+              <Heart className="w-4 h-4 sm:w-5 sm:h-5 fill-rose-500/30" />
             </div>
             <div>
-              <h2 id="donation-modal-title" className="text-lg font-semibold text-zinc-100 tracking-tight flex items-center gap-2">
+              <h2 id="donation-modal-title" className="text-base sm:text-lg font-semibold text-zinc-100 tracking-tight flex items-center gap-2">
                 {t('donationModal.title', 'Apoyar OnePixel Studio')}
-                <span className="px-2 py-0.5 text-[10px] font-semibold bg-[#0079C1]/20 text-[#0079C1] border border-[#0079C1]/40 rounded-md">
+                <span className="px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-semibold bg-[#0079C1]/20 text-[#0079C1] border border-[#0079C1]/40 rounded-md">
                   PayPal
                 </span>
               </h2>
-              <p className="text-xs text-zinc-400 mt-0.5">
+              <p className="text-[11px] sm:text-xs text-zinc-400 mt-0.5">
                 {t('donationModal.subtitle', 'Impulsa el desarrollo de herramientas libres y profesionales para pixel art')}
               </p>
             </div>
@@ -117,9 +117,9 @@ export const DonationModal: React.FC<DonationModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto space-y-5 text-sm">
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-5 text-sm">
           {/* Main Statement */}
-          <div className="p-4 rounded-xl bg-[#0b1610] border border-[#1b3d2b] text-zinc-300 leading-relaxed text-xs sm:text-sm">
+          <div className="p-3.5 sm:p-4 rounded-xl bg-[#0b1610] border border-[#1b3d2b] text-zinc-300 leading-relaxed text-xs sm:text-sm">
             <p>
               {t('donationModal.description', 'OnePixel Studio es un proyecto 100% gratuito y sin anuncios creado con pasión para artistas independientes y desarrolladores de videojuegos.')}
             </p>
@@ -137,7 +137,7 @@ export const DonationModal: React.FC<DonationModalProps> = ({
           </div>
 
           {/* Destination Link Box */}
-          <div className="p-3.5 rounded-xl bg-[#08100b] border border-[#1b3d2b] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="p-3 sm:p-3.5 rounded-xl bg-[#08100b] border border-[#1b3d2b] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3">
             <div className="min-w-0 flex-1">
               <span className="text-[11px] font-medium text-zinc-400 block mb-0.5">Cuenta oficial de PayPal</span>
               <a 
@@ -162,7 +162,7 @@ export const DonationModal: React.FC<DonationModalProps> = ({
               ) : (
                 <>
                   <Copy className="w-3.5 h-3.5" />
-                  <span>{t('donationModal.copyDonationLink', 'Copiar enlace de donación')}</span>
+                  <span>{t('donationModal.copyDonationLink', 'Copiar enlace')}</span>
                 </>
               )}
             </button>
@@ -176,7 +176,7 @@ export const DonationModal: React.FC<DonationModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="px-6 py-4 border-t border-[#1b3d2b] bg-[#0b1610] flex flex-col sm:flex-row items-center justify-end gap-3">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-[#1b3d2b] bg-[#0b1610] flex flex-col-reverse sm:flex-row items-center justify-end gap-2.5 sm:gap-3 shrink-0">
           <button
             id="donation-modal-cancel-btn"
             onClick={onClose}

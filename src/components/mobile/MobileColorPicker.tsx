@@ -120,6 +120,8 @@ export interface MobileColorPickerProps {
   documentColors?: string[];
   customPalette?: string[];
   onAddToCustomPalette?: (color: string) => void;
+  onClearCustomPalette?: () => void;
+  onInvertPalette?: () => void;
   onRemoveFromCustomPalette?: (indexOrColor: any) => void;
   onLoadPalette?: (nameOrColors: any, colors?: string[]) => void;
   isLandscape?: boolean;
@@ -138,6 +140,8 @@ export const MobileColorPicker: React.FC<MobileColorPickerProps> = React.memo(fu
   documentColors = [],
   customPalette = [],
   onAddToCustomPalette,
+  onClearCustomPalette,
+  onInvertPalette,
   onRemoveFromCustomPalette,
   onLoadPalette,
   isLandscape = false,
@@ -455,7 +459,7 @@ export const MobileColorPicker: React.FC<MobileColorPickerProps> = React.memo(fu
     return (
       <div className="w-full bg-black/40 backdrop-blur-md rounded-3xl p-3.5 border border-white/10 flex flex-col gap-3 shadow-xl">
         {/* Header with Title and Add Button */}
-        <div className="flex items-center justify-between px-1">
+        <div className="flex items-center justify-between px-1 flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <PaletteIcon className="w-4 h-4 text-[#C8A96A]" />
             <span className="text-xs font-extrabold uppercase tracking-wider text-slate-200">
@@ -466,14 +470,41 @@ export const MobileColorPicker: React.FC<MobileColorPickerProps> = React.memo(fu
             </span>
           </div>
 
-          <button
-            onClick={() => onAddToCustomPalette?.(currentColor)}
-            className="min-h-[32px] px-3 rounded-xl bg-[#C8A96A] text-[#102419] hover:bg-white text-xs font-black flex items-center gap-1.5 transition active:scale-95 touch-manipulation cursor-pointer shadow-md"
-            title="Guardar color actual en la paleta"
-          >
-            <Plus className="w-4 h-4 stroke-[3]" />
-            <span>Añadir Color</span>
-          </button>
+          <div className="flex items-center gap-1.5">
+            {onInvertPalette && activeSwatches.length > 1 && (
+              <button
+                type="button"
+                onClick={onInvertPalette}
+                className="min-h-[32px] px-2 rounded-xl bg-white/5 hover:bg-white/15 text-slate-200 text-xs font-semibold flex items-center gap-1 border border-white/10 transition active:scale-95 touch-manipulation cursor-pointer"
+                title={translate('colors.invertPalette', language) || 'Invertir paleta'}
+              >
+                <ArrowLeftRight className="w-3.5 h-3.5 text-[#C8A96A]" />
+                <span className="hidden min-[380px]:inline text-[11px]">{translate('colors.invertPalette', language) || 'Invertir'}</span>
+              </button>
+            )}
+
+            {onClearCustomPalette && (customPalette.length > 0 || activeSwatches.length > 0) && (
+              <button
+                type="button"
+                onClick={onClearCustomPalette}
+                className="min-h-[32px] px-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-300 text-xs font-semibold flex items-center gap-1 border border-red-500/20 transition active:scale-95 touch-manipulation cursor-pointer"
+                title={translate('colors.clearPalette', language) || 'Limpiar paleta'}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span className="hidden min-[380px]:inline text-[11px]">{translate('colors.clearPalette', language) || 'Limpiar'}</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => onAddToCustomPalette?.(currentColor)}
+              className="min-h-[32px] px-3 rounded-xl bg-[#C8A96A] text-[#102419] hover:bg-white text-xs font-black flex items-center gap-1.5 transition active:scale-95 touch-manipulation cursor-pointer shadow-md"
+              title="Guardar color actual en la paleta"
+            >
+              <Plus className="w-4 h-4 stroke-[3]" />
+              <span>Añadir</span>
+            </button>
+          </div>
         </div>
 
         {/* Spacious Swatches Grid / Tiras */}

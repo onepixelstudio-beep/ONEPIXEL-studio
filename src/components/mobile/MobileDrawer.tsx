@@ -29,6 +29,47 @@ interface MobileDrawerProps {
   pixelPerfect: boolean;
   onChangePixelPerfect: (val: boolean) => void;
 
+  // Extended tool option states
+  activeBrush?: any;
+  onChangeActiveBrush?: (brush: any) => void;
+  sprayDensity?: number;
+  onChangeSprayDensity?: (val: number) => void;
+  sprayRandomness?: number;
+  onChangeSprayRandomness?: (val: number) => void;
+  sprayShape?: 'round' | 'square' | 'cross' | 'star';
+  onChangeSprayShape?: (shape: 'round' | 'square' | 'cross' | 'star') => void;
+  ditheringPattern?: 'checkerboard' | 'bayer' | '25%' | '50%' | '75%' | 'lines' | 'cross' | 'noise';
+  onChangeDitheringPattern?: (pat: 'checkerboard' | 'bayer' | '25%' | '50%' | '75%' | 'lines' | 'cross' | 'noise') => void;
+  cloneSource?: { x: number; y: number } | null;
+  onChangeCloneSource?: (src: { x: number; y: number } | null) => void;
+  isSelectingCloneSource?: boolean;
+  onStartSelectCloneSource?: () => void;
+  bucketContiguous?: boolean;
+  onChangeBucketContiguous?: (val: boolean) => void;
+  bucketRefer?: 'active' | 'all';
+  onChangeBucketRefer?: (val: 'active' | 'all') => void;
+  tolerance?: number;
+  onChangeTolerance?: (val: number) => void;
+  fillShape?: boolean;
+  onChangeFillShape?: (val: boolean) => void;
+  selectionActive?: boolean;
+  onClearSelection?: () => void;
+  onInvertSelection?: () => void;
+  onSaveAsStamp?: () => void;
+  onOpenAssetLibrary?: () => void;
+  activeStamp?: { pixels: string[]; width: number; height: number; name: string } | null;
+  onClearActiveStamp?: () => void;
+  stampScale?: number;
+  onChangeStampScale?: (scale: number | ((prev: number) => number)) => void;
+  stampRotation?: number;
+  onChangeStampRotation?: (rot: number | ((prev: number) => number)) => void;
+  stampFlipH?: boolean;
+  onChangeStampFlipH?: (flip: boolean | ((prev: boolean) => boolean)) => void;
+  stampFlipV?: boolean;
+  onChangeStampFlipV?: (flip: boolean | ((prev: boolean) => boolean)) => void;
+  patternMode?: 'stamp' | 'pattern';
+  onChangePatternMode?: (mode: 'stamp' | 'pattern') => void;
+
   // Layer states
   layers: Layer[];
   selectedLayerId: string;
@@ -88,6 +129,45 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = React.memo(function Mob
   onChangeTiling,
   pixelPerfect,
   onChangePixelPerfect,
+  activeBrush,
+  onChangeActiveBrush,
+  sprayDensity,
+  onChangeSprayDensity,
+  sprayRandomness,
+  onChangeSprayRandomness,
+  sprayShape,
+  onChangeSprayShape,
+  ditheringPattern,
+  onChangeDitheringPattern,
+  cloneSource,
+  onChangeCloneSource,
+  isSelectingCloneSource = false,
+  onStartSelectCloneSource,
+  bucketContiguous,
+  onChangeBucketContiguous,
+  bucketRefer,
+  onChangeBucketRefer,
+  tolerance,
+  onChangeTolerance,
+  fillShape,
+  onChangeFillShape,
+  selectionActive,
+  onClearSelection,
+  onInvertSelection,
+  onSaveAsStamp,
+  onOpenAssetLibrary,
+  activeStamp,
+  onClearActiveStamp,
+  stampScale,
+  onChangeStampScale,
+  stampRotation,
+  onChangeStampRotation,
+  stampFlipH,
+  onChangeStampFlipH,
+  stampFlipV,
+  onChangeStampFlipV,
+  patternMode,
+  onChangePatternMode,
   layers,
   selectedLayerId,
   onSelectLayer,
@@ -113,7 +193,9 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = React.memo(function Mob
   documentColors,
   customPalette,
   onAddToCustomPalette,
+  onClearCustomPalette,
   onRemoveFromCustomPalette,
+  onInvertPalette,
   onLoadPalette,
   isLandscape = false,
   language
@@ -136,8 +218,8 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = React.memo(function Mob
         onClick={(e) => e.stopPropagation()}
         className={`w-full bg-[#0B1A13]/98 backdrop-blur-xl border border-white/10 shadow-[0_-12px_40px_rgba(0,0,0,0.85)] flex flex-col overflow-hidden text-slate-100 ${
           isLandscape 
-            ? (activePanel === 'color' ? 'max-w-4xl w-[96vw] max-h-[95vh] h-[92vh] rounded-3xl' : 'max-w-xl max-h-[92vh] rounded-3xl')
-            : (activePanel === 'color' ? 'rounded-t-[32px] max-h-[94vh] h-[90vh]' : 'rounded-t-[32px] max-h-[88vh]')
+            ? (activePanel === 'color' ? 'max-w-4xl w-[96vw] max-h-[95dvh] h-[92dvh] rounded-3xl' : 'max-w-xl max-h-[92dvh] rounded-3xl')
+            : (activePanel === 'color' ? 'rounded-t-[32px] max-h-[94dvh] h-[90dvh]' : 'rounded-t-[32px] max-h-[88dvh]')
         }`}
         id="mobile-drawer-container"
       >
@@ -260,10 +342,49 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = React.memo(function Mob
               onChangeBrushSize={onChangeBrushSize}
               pixelPerfect={pixelPerfect}
               onChangePixelPerfect={onChangePixelPerfect}
+              activeBrush={activeBrush}
+              onChangeActiveBrush={onChangeActiveBrush}
+              sprayDensity={sprayDensity}
+              onChangeSprayDensity={onChangeSprayDensity}
+              sprayRandomness={sprayRandomness}
+              onChangeSprayRandomness={onChangeSprayRandomness}
+              sprayShape={sprayShape}
+              onChangeSprayShape={onChangeSprayShape}
+              ditheringPattern={ditheringPattern}
+              onChangeDitheringPattern={onChangeDitheringPattern}
+              cloneSource={cloneSource}
+              onChangeCloneSource={onChangeCloneSource}
+              isSelectingCloneSource={isSelectingCloneSource}
+              onStartSelectCloneSource={onStartSelectCloneSource}
+              bucketContiguous={bucketContiguous}
+              onChangeBucketContiguous={onChangeBucketContiguous}
+              bucketRefer={bucketRefer}
+              onChangeBucketRefer={onChangeBucketRefer}
+              tolerance={tolerance}
+              onChangeTolerance={onChangeTolerance}
+              fillShape={fillShape}
+              onChangeFillShape={onChangeFillShape}
               symmetry={symmetry}
               onChangeSymmetry={onChangeSymmetry}
               tiling={tiling}
               onChangeTiling={onChangeTiling}
+              selectionActive={selectionActive}
+              onClearSelection={onClearSelection}
+              onInvertSelection={onInvertSelection}
+              onSaveAsStamp={onSaveAsStamp}
+              onOpenAssetLibrary={onOpenAssetLibrary}
+              activeStamp={activeStamp}
+              onClearActiveStamp={onClearActiveStamp}
+              stampScale={stampScale}
+              onChangeStampScale={onChangeStampScale}
+              stampRotation={stampRotation}
+              onChangeStampRotation={onChangeStampRotation}
+              stampFlipH={stampFlipH}
+              onChangeStampFlipH={onChangeStampFlipH}
+              stampFlipV={stampFlipV}
+              onChangeStampFlipV={onChangeStampFlipV}
+              patternMode={patternMode}
+              onChangePatternMode={onChangePatternMode}
               isLandscape={isLandscape}
               language={language}
               onClose={onClose}
@@ -307,7 +428,9 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = React.memo(function Mob
               documentColors={documentColors}
               customPalette={customPalette}
               onAddToCustomPalette={onAddToCustomPalette}
+              onClearCustomPalette={onClearCustomPalette}
               onRemoveFromCustomPalette={onRemoveFromCustomPalette}
+              onInvertPalette={onInvertPalette}
               onLoadPalette={onLoadPalette}
               isLandscape={isLandscape}
               language={language}
