@@ -2757,41 +2757,46 @@ export default function App() {
   }
 
   const handleImportProject = (imported: PixelProject) => {
-    const deserialized = ProjectDeserializer.deserialize(imported);
-    const cleanProj = deserialized.project;
+    try {
+      const deserialized = ProjectDeserializer.deserialize(imported);
+      const cleanProj = deserialized.project;
 
-    if (cleanProj.width > 600 || cleanProj.height > 600) {
-      showToast(`El documento excede el límite máximo permitido de 600×600 px (${cleanProj.width}×${cleanProj.height} px).`, 'error');
-      return;
+      if (cleanProj.width > 600 || cleanProj.height > 600) {
+        showToast(`El documento excede el límite máximo permitido de 600×600 px (${cleanProj.width}×${cleanProj.height} px).`, 'error');
+        return;
+      }
+
+      const projId = cleanProj.id || `proj-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+      const cleanImported = { ...cleanProj, id: projId };
+
+      const newTab: OpenProjectTab = {
+        id: projId,
+        project: cleanImported,
+        selectedFrameId: cleanImported.frames[0]?.id || '',
+        selectedLayerId: cleanImported.layers[0]?.id || '',
+        undoStack: [],
+        redoStack: [],
+        symmetry: deserialized.symmetry,
+        tiling: deserialized.tiling,
+        fileHandle: cleanImported.fileHandle,
+        fileFormat: cleanImported.fileFormat
+      };
+
+      if (deserialized.customPalette) {
+        setCustomPalette(deserialized.customPalette);
+      }
+
+      setWelcomeOpen(false);
+      syncProjectWithPersistenceAndRecents(cleanImported);
+      setTabs(prev => {
+        const nextTabs = [...prev, newTab];
+        setTimeout(() => switchTab(projId, nextTabs), 0);
+        return nextTabs;
+      });
+    } catch (err: any) {
+      console.error('[Import Error]', err);
+      showToast(err.message || 'Error al importar el proyecto.', 'error');
     }
-
-    const projId = cleanProj.id || `proj-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
-    const cleanImported = { ...cleanProj, id: projId };
-
-    const newTab: OpenProjectTab = {
-      id: projId,
-      project: cleanImported,
-      selectedFrameId: cleanImported.frames[0]?.id || '',
-      selectedLayerId: cleanImported.layers[0]?.id || '',
-      undoStack: [],
-      redoStack: [],
-      symmetry: deserialized.symmetry,
-      tiling: deserialized.tiling,
-      fileHandle: cleanImported.fileHandle,
-      fileFormat: cleanImported.fileFormat
-    };
-
-    if (deserialized.customPalette) {
-      setCustomPalette(deserialized.customPalette);
-    }
-
-    setWelcomeOpen(false);
-    syncProjectWithPersistenceAndRecents(cleanImported);
-    setTabs(prev => {
-      const nextTabs = [...prev, newTab];
-      setTimeout(() => switchTab(projId, nextTabs), 0);
-      return nextTabs;
-    });
   };
 
   const handleExportProjectJson = async () => {

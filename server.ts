@@ -12,6 +12,13 @@ const PORT = 3000;
 // Parse incoming JSON payloads
 app.use(express.json({ limit: '2mb' }));
 
+// Security Headers Middleware
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+
 /**
  * Official Support Email Destination
  */
@@ -29,6 +36,22 @@ function generateTrackingId(): string {
     part2 += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return `OP-${part1}-${part2}`;
+}
+
+/**
+ * Escapes HTML characters to prevent HTML/script injection in email rendering
+ */
+function escapeHtml(str: any): string {
+  if (typeof str !== 'string') {
+    if (str === null || str === undefined) return '';
+    return String(str);
+  }
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 /**
@@ -156,52 +179,60 @@ app.post('/api/support/report', async (req, res) => {
       plainText += `\n[El usuario optó por no adjuntar datos técnicos]\n`;
     }
 
+    // Escape variables for HTML email rendering to prevent HTML/script injection
+    const escapedTrackingId = escapeHtml(trackingId);
+    const escapedSubject = escapeHtml(subject);
+    const escapedDescription = escapeHtml(description);
+    const escapedCategoryLabel = escapeHtml(categoryLabel);
+    const escapedContactEmail = contactEmail ? escapeHtml(contactEmail) : null;
+    const escapedDate = escapeHtml(nowFormatted);
+
     // Format rich HTML email
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; background-color: #0f172a; color: #f8fafc; padding: 24px; border-radius: 12px; max-width: 680px; margin: 0 auto; border: 1px solid #334155;">
         <div style="border-bottom: 2px solid #059669; padding-bottom: 16px; margin-bottom: 20px;">
           <h2 style="color: #34d399; margin: 0 0 6px 0; font-size: 22px;">OnePixel Studio — Reporte de Soporte</h2>
           <div style="display: inline-block; background-color: #1e293b; color: #fbbf24; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-family: monospace; font-size: 14px; border: 1px solid #475569;">
-            ID: ${trackingId}
+            ID: ${escapedTrackingId}
           </div>
-          <span style="color: #94a3b8; font-size: 12px; margin-left: 12px;">${nowFormatted}</span>
+          <span style="color: #94a3b8; font-size: 12px; margin-left: 12px;">${escapedDate}</span>
         </div>
 
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px;">
           <tr>
             <td style="padding: 6px 0; color: #94a3b8; width: 140px; font-weight: bold;">Categoría:</td>
-            <td style="padding: 6px 0; color: #e2e8f0;">${categoryLabel}</td>
+            <td style="padding: 6px 0; color: #e2e8f0;">${escapedCategoryLabel}</td>
           </tr>
           <tr>
             <td style="padding: 6px 0; color: #94a3b8; font-weight: bold;">Asunto:</td>
-            <td style="padding: 6px 0; color: #f8fafc; font-weight: bold;">${subject}</td>
+            <td style="padding: 6px 0; color: #f8fafc; font-weight: bold;">${escapedSubject}</td>
           </tr>
           <tr>
             <td style="padding: 6px 0; color: #94a3b8; font-weight: bold;">Contacto:</td>
-            <td style="padding: 6px 0; color: #38bdf8;">${contactEmail ? `<a href="mailto:${contactEmail}" style="color: #38bdf8; text-decoration: none;">${contactEmail}</a>` : '<span style="color: #64748b;">No proporcionado</span>'}</td>
+            <td style="padding: 6px 0; color: #38bdf8;">${escapedContactEmail ? `<a href="mailto:${escapedContactEmail}" style="color: #38bdf8; text-decoration: none;">${escapedContactEmail}</a>` : '<span style="color: #64748b;">No proporcionado</span>'}</td>
           </tr>
         </table>
 
         <div style="background-color: #1e293b; border-left: 4px solid #3b82f6; padding: 16px; border-radius: 6px; margin-bottom: 24px;">
           <h4 style="margin: 0 0 8px 0; color: #93c5fd; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Descripción del problema</h4>
-          <p style="margin: 0; color: #f1f5f9; white-space: pre-wrap; font-size: 14px; line-height: 1.6;">${description}</p>
+          <p style="margin: 0; color: #f1f5f9; white-space: pre-wrap; font-size: 14px; line-height: 1.6;">${escapedDescription}</p>
         </div>
 
         ${technicalDiagnostics ? `
           <div style="background-color: #111827; border: 1px solid #374151; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
             <h4 style="margin: 0 0 12px 0; color: #10b981; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Diagnóstico Técnico del Sistema</h4>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; color: #cbd5e1;">
-              <div><strong>App:</strong> OnePixel Studio v${technicalDiagnostics.appVersion || '1.4.0'}</div>
-              <div><strong>Plataforma:</strong> ${technicalDiagnostics.environment?.platform || 'Web'}</div>
-              <div><strong>Lienzo:</strong> ${technicalDiagnostics.canvas?.canvasDimensions || 'N/A'}</div>
-              <div><strong>Capas / Frames:</strong> ${technicalDiagnostics.canvas?.layersCount || 0} / ${technicalDiagnostics.canvas?.framesCount || 0} (${technicalDiagnostics.canvas?.fps || 8} FPS)</div>
-              <div><strong>Herramienta:</strong> ${technicalDiagnostics.editorState?.activeTool || 'None'}</div>
-              <div><strong>Zoom:</strong> ${technicalDiagnostics.editorState?.zoomLevel || 100}%</div>
-              <div><strong>Historial:</strong> ${technicalDiagnostics.editorState?.undoStepsAvailable || 0} deshacer / ${technicalDiagnostics.editorState?.redoStepsAvailable || 0} rehacer</div>
-              <div><strong>Pantalla:</strong> ${technicalDiagnostics.environment?.screen ? `${technicalDiagnostics.environment.screen.width}x${technicalDiagnostics.environment.screen.height}` : 'N/A'}</div>
+              <div><strong>App:</strong> OnePixel Studio v${escapeHtml(technicalDiagnostics.appVersion || '1.4.0')}</div>
+              <div><strong>Plataforma:</strong> ${escapeHtml(technicalDiagnostics.environment?.platform || 'Web')}</div>
+              <div><strong>Lienzo:</strong> ${escapeHtml(technicalDiagnostics.canvas?.canvasDimensions || 'N/A')}</div>
+              <div><strong>Capas / Frames:</strong> ${Number(technicalDiagnostics.canvas?.layersCount) || 0} / ${Number(technicalDiagnostics.canvas?.framesCount) || 0} (${Number(technicalDiagnostics.canvas?.fps) || 8} FPS)</div>
+              <div><strong>Herramienta:</strong> ${escapeHtml(technicalDiagnostics.editorState?.activeTool || 'None')}</div>
+              <div><strong>Zoom:</strong> ${Number(technicalDiagnostics.editorState?.zoomLevel) || 100}%</div>
+              <div><strong>Historial:</strong> ${Number(technicalDiagnostics.editorState?.undoStepsAvailable) || 0} deshacer / ${Number(technicalDiagnostics.editorState?.redoStepsAvailable) || 0} rehacer</div>
+              <div><strong>Pantalla:</strong> ${technicalDiagnostics.environment?.screen ? escapeHtml(`${technicalDiagnostics.environment.screen.width}x${technicalDiagnostics.environment.screen.height}`) : 'N/A'}</div>
             </div>
             <div style="margin-top: 10px; font-size: 11px; color: #64748b; word-break: break-all;">
-              <strong>User Agent:</strong> ${technicalDiagnostics.environment?.userAgent || 'N/A'}
+              <strong>User Agent:</strong> ${escapeHtml(technicalDiagnostics.environment?.userAgent || 'N/A')}
             </div>
           </div>
         ` : `

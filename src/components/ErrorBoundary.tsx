@@ -6,7 +6,7 @@ import { LocalPersistence } from '../utils/persistence/LocalPersistence';
 export type ErrorSeverity = 'Warning' | 'Recoverable' | 'Serious' | 'Critical';
 
 export function classifyError(
-  error: Error | null | string,
+  error: Error | null | string | any,
   details?: {
     isReactComponentError?: boolean;
     isGlobalEvent?: boolean;
@@ -16,8 +16,14 @@ export function classifyError(
     colno?: number;
   }
 ): ErrorSeverity {
+  if (!error) return 'Warning';
   const msg = typeof error === 'string' ? error : (error?.message || '');
   const stack = typeof error === 'object' && error ? error?.stack || '' : '';
+
+  // If there is no message and no stack, it is a benign/uninformative error or empty event
+  if (!msg && !stack) {
+    return 'Warning';
+  }
 
   // 1. Explicitly benign/known non-fatal messages -> Warning
   if (
@@ -26,6 +32,11 @@ export function classifyError(
     msg.includes('WebSocket closed without opened') ||
     msg.includes('failed to connect to websocket') ||
     msg.includes('[vite] failed to connect') ||
+    msg.includes('Refused to connect') ||
+    msg.includes('Content Security Policy') ||
+    msg.includes('securitypolicyviolation') ||
+    msg.includes('SecurityError') ||
+    msg.includes('Failed to register a ServiceWorker') ||
     (msg.includes('Script error.') && (!stack || stack.trim() === ''))
   ) {
     return 'Warning';
@@ -171,7 +182,13 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   public componentDidMount() {
     this.globalErrorListener = (event: ErrorEvent) => {
-      const err = event.error || new Error(event.message || 'Error global sin detalles');
+      // Ignore empty/uninformative error events
+      if (!event.message && !event.error) return;
+      const rawErr = event.error;
+      const msg = typeof rawErr === 'string' ? rawErr : (rawErr?.message || event.message || '');
+      if (!msg) return;
+
+      const err = rawErr instanceof Error ? rawErr : new Error(msg);
       const severity = classifyError(err, {
         isGlobalEvent: true,
         filename: event.filename,
@@ -180,13 +197,6 @@ export class ErrorBoundary extends React.Component<Props, State> {
       });
 
       if (severity === 'Warning') {
-        console.warn('[GLOBAL ONERROR FILTERED AS WARNING]', err.message || event.message);
-        telemetry.logAction('GLOBAL_ERROR_WARNING', err.message || event.message, {
-          severity: 'Warning',
-          filename: event.filename,
-          lineno: event.lineno,
-          colno: event.colno
-        });
         return;
       }
 
@@ -204,13 +214,15 @@ export class ErrorBoundary extends React.Component<Props, State> {
     };
 
     this.globalRejectionListener = (event: PromiseRejectionEvent) => {
+      if (!event.reason) return;
       const reason = event.reason;
-      const err = reason instanceof Error ? reason : new Error(String(reason || 'Rechazo de promesa no controlado'));
+      const msg = typeof reason === 'string' ? reason : (reason?.message || '');
+      if (!msg && !(reason instanceof Error)) return;
+
+      const err = reason instanceof Error ? reason : new Error(msg || 'Rechazo de promesa');
       const severity = classifyError(err, { isGlobalEvent: true, isUnhandledRejection: true });
 
       if (severity === 'Warning') {
-        console.warn('[UNHANDLED REJECTION FILTERED AS WARNING]', err.message);
-        telemetry.logAction('UNHANDLED_REJECTION_WARNING', err.message, { severity: 'Warning' });
         return;
       }
 

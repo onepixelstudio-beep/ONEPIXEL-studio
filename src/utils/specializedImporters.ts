@@ -114,7 +114,14 @@ async function parseOraFile(file: File): Promise<{
   const width = parseInt(imageEl.getAttribute('width') || '32', 10);
   const height = parseInt(imageEl.getAttribute('height') || '32', 10);
 
+  if (isNaN(width) || isNaN(height) || width < 1 || height < 1 || width > 600 || height > 600) {
+    throw new Error(`Dimensiones inválidas o fuera del límite en archivo .ora (${width}×${height} px). Límite máximo: 600×600 px.`);
+  }
+
   const layerEls = Array.from(xmlDoc.getElementsByTagName('layer'));
+  if (layerEls.length > 100) {
+    throw new Error(`El archivo .ora supera el límite de seguridad de 100 capas (${layerEls.length} capas encontradas).`);
+  }
   const parsedLayers: { name: string; opacity: number; visible: boolean; pixels: string[] }[] = [];
 
   for (let i = 0; i < layerEls.length; i++) {
@@ -161,11 +168,17 @@ async function parsePsdFile(file: File): Promise<{
 
   const width = psd.width;
   const height = psd.height;
+
+  if (typeof width !== 'number' || typeof height !== 'number' || isNaN(width) || isNaN(height) || width < 1 || height < 1 || width > 600 || height > 600) {
+    throw new Error(`Dimensiones inválidas o fuera del límite en archivo PSD (${width}×${height} px). Límite máximo: 600×600 px.`);
+  }
+
   const parsedLayers: { name: string; opacity: number; visible: boolean; pixels: string[] }[] = [];
 
   // Helper to recursively collect layers
   function collectLayers(children: any[]) {
     for (const child of children) {
+      if (parsedLayers.length >= 100) break;
       if (child.children) {
         // Recurse groups
         collectLayers(child.children);
@@ -220,6 +233,11 @@ export async function parseCompatibleFileToProject(file: File): Promise<PixelPro
 }
 
 async function parseCompatibleFileToProjectInternal(file: File): Promise<PixelProject> {
+  // Global file size safety quota: 50MB
+  if (file.size > 50 * 1024 * 1024) {
+    throw new Error('El archivo supera el tamaño máximo de seguridad permitido de 50 MB.');
+  }
+
   const ext = file.name.split('.').pop()?.toLowerCase() || '';
   const projectId = `proj-${Date.now()}`;
   const projectName = file.name.split('.')[0] || 'Nuevo Proyecto';
@@ -357,8 +375,8 @@ async function parseCompatibleFileToProjectInternal(file: File): Promise<PixelPr
 
   // Fallback to standard image decoding (PNG, JPEG, GIF, BMP, WEBP)
   const { width, height, img } = await loadImageFromFile(file);
-  if (width > 600 || height > 600) {
-    throw new Error(`El documento excede el límite máximo permitido de 600×600 px (${width}×${height} px).`);
+  if (isNaN(width) || isNaN(height) || width < 1 || height < 1 || width > 600 || height > 600) {
+    throw new Error(`El documento contiene dimensiones inválidas o excede el límite máximo permitido de 600×600 px (${width}×${height} px).`);
   }
   const frameId = `frame-${Date.now()}`;
   const layerId = `layer-${Date.now()}`;
