@@ -213,13 +213,85 @@ async function parsePsdFile(file: File): Promise<{
 }
 
 /**
+ * Gets dimensions of a compatible file safely without full pixel array allocation.
+ * Enforces file size safety limits and image dimension safety bounds.
+ */
+export async function getCompatibleFileDimensions(file: File): Promise<{ width: number; height: number }> {
+  // Global file size safety quota: 50MB
+  if (file.size > 50 * 1024 * 1024) {
+    throw new Error('El archivo supera el tamaño máximo de seguridad permitido de 50 MB.');
+  }
+
+  const ext = file.name.split('.').pop()?.toLowerCase() || '';
+
+  if (ext === 'ora') {
+    const arrayBuffer = await file.arrayBuffer();
+    const unzipped = unzipSync(new Uint8Array(arrayBuffer));
+    const stackXmlBytes = unzipped['stack.xml'];
+    if (!stackXmlBytes) {
+      throw new Error('Archivo stack.xml no encontrado en el archivo .ora');
+    }
+    const xmlText = new TextDecoder().decode(stackXmlBytes);
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+    const imageEl = xmlDoc.getElementsByTagName('image')[0];
+    if (!imageEl) {
+      throw new Error('Elemento <image> no encontrado en stack.xml');
+    }
+    const width = parseInt(imageEl.getAttribute('width') || '32', 10);
+    const height = parseInt(imageEl.getAttribute('height') || '32', 10);
+    if (isNaN(width) || isNaN(height) || width < 1 || height < 1 || width > 8192 || height > 8192) {
+      throw new Error(`Dimensiones inválidas o fuera de los límites de seguridad en archivo .ora (${width}×${height} px).`);
+    }
+    return { width, height };
+  }
+
+  if (ext === 'psd') {
+    const arrayBuffer = await file.arrayBuffer();
+    const psd = readPsd(arrayBuffer, { skipLayerImageData: true });
+    const width = psd.width;
+    const height = psd.height;
+    if (typeof width !== 'number' || typeof height !== 'number' || isNaN(width) || isNaN(height) || width < 1 || height < 1 || width > 8192 || height > 8192) {
+      throw new Error(`Dimensiones inválidas o fuera de los límites de seguridad en archivo PSD (${width}×${height} px).`);
+    }
+    return { width, height };
+  }
+
+  if (ext === 'ase' || ext === 'aseprite') {
+    const arrayBuffer = await file.arrayBuffer();
+    const parsed = parseAseprite(arrayBuffer);
+    if (parsed.width > 8192 || parsed.height > 8192) {
+      throw new Error(`El documento supera las dimensiones máximas de seguridad (máx 8192 px).`);
+    }
+    return { width: parsed.width, height: parsed.height };
+  }
+
+  // Standard raster image (PNG, JPEG, GIF, BMP, WEBP)
+  const { width, height } = await loadImageFromFile(file);
+  if (isNaN(width) || isNaN(height) || width < 1 || height < 1) {
+    throw new Error('El documento contiene dimensiones inválidas.');
+  }
+  // Hard ceiling for security against decompression bombs
+  if (width > 8192 || height > 8192) {
+    throw new Error(`La imagen supera las dimensiones de seguridad máximas permitidas (máx 8192 px).`);
+  }
+
+  return { width, height };
+}
+
+export interface ParseCompatibleOptions {
+  targetWidth?: number;
+  targetHeight?: number;
+}
+
+/**
  * Unified importer function.
  * Converts any compatible file format into a rich PixelProject structure.
  * Formats: PNG, JPEG, GIF, PSD, ORA, ASE/ASEPRITE, BMP, WEBP.
  */
-export async function parseCompatibleFileToProject(file: File): Promise<PixelProject> {
+export async function parseCompatibleFileToProject(file: File, options?: ParseCompatibleOptions): Promise<PixelProject> {
   const start = performance.now();
-  const project = await parseCompatibleFileToProjectInternal(file);
+  const project = await parseCompatibleFileToProjectInternal(file, options);
   const duration = performance.now() - start;
   
   const ext = file.name.split('.').pop()?.toLowerCase() || '';
@@ -232,7 +304,7 @@ export async function parseCompatibleFileToProject(file: File): Promise<PixelPro
   return project;
 }
 
-async function parseCompatibleFileToProjectInternal(file: File): Promise<PixelProject> {
+async function parseCompatibleFileToProjectInternal(file: File, options?: ParseCompatibleOptions): Promise<PixelProject> {
   // Global file size safety quota: 50MB
   if (file.size > 50 * 1024 * 1024) {
     throw new Error('El archivo supera el tamaño máximo de seguridad permitido de 50 MB.');
@@ -375,18 +447,29 @@ async function parseCompatibleFileToProjectInternal(file: File): Promise<PixelPr
 
   // Fallback to standard image decoding (PNG, JPEG, GIF, BMP, WEBP)
   const { width, height, img } = await loadImageFromFile(file);
-  if (isNaN(width) || isNaN(height) || width < 1 || height < 1 || width > 600 || height > 600) {
-    throw new Error(`El documento contiene dimensiones inválidas o excede el límite máximo permitido de 600×600 px (${width}×${height} px).`);
+  if (isNaN(width) || isNaN(height) || width < 1 || height < 1) {
+    throw new Error('El documento contiene dimensiones inválidas.');
   }
+
+  let finalWidth = width;
+  let finalHeight = height;
+
+  if (options?.targetWidth && options?.targetHeight) {
+    finalWidth = Math.max(4, Math.min(600, Math.round(options.targetWidth)));
+    finalHeight = Math.max(4, Math.min(600, Math.round(options.targetHeight)));
+  } else if (width > 600 || height > 600) {
+    throw new Error(`El documento contiene dimensiones que exceden el límite de 600×600 px (${width}×${height} px).`);
+  }
+
   const frameId = `frame-${Date.now()}`;
   const layerId = `layer-${Date.now()}`;
-  const pixelsArray = getPixelsFromCanvas(img, width, height);
+  const pixelsArray = getPixelsFromCanvas(img, finalWidth, finalHeight);
 
   return {
     id: projectId,
     name: projectName,
-    width,
-    height,
+    width: finalWidth,
+    height: finalHeight,
     frames: [{ id: frameId, name: 'Fotograma 1' }],
     layers: [{ id: layerId, name: 'Capa 1', opacity: 100, visible: true, locked: false }],
     pixels: {

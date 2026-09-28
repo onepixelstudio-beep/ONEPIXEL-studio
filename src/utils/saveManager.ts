@@ -526,14 +526,22 @@ function triggerBlobDownload(projectPayload: PixelProject, fileName: string, fil
   const downloadAnchor = document.createElement('a');
   downloadAnchor.setAttribute("href", url);
   downloadAnchor.setAttribute("download", `${fileName.replace(/\s+/g, '_')}.${fileFormat}`);
+  downloadAnchor.setAttribute("rel", "noopener");
+  downloadAnchor.style.display = 'none';
   document.body.appendChild(downloadAnchor);
-  downloadAnchor.click();
+  
+  // Safe dispatch for both modern pointer/mouse and mobile webkit environments
+  try {
+    downloadAnchor.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+  } catch (e) {
+    downloadAnchor.click();
+  }
 
-  // Clean up reference in the background
+  // Clean up reference in the background with adequate delay for mobile browsers
   setTimeout(() => {
     URL.revokeObjectURL(url);
     downloadAnchor.remove();
-  }, 150);
+  }, 1000);
 
   return true;
 }

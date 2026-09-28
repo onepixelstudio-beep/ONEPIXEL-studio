@@ -24,6 +24,9 @@ export class ProjectDeserializer {
     referenceVisible: boolean;
     referenceLocked: boolean;
     customPalette: any;
+    selectedFrameId?: string;
+    selectedLayerId?: string;
+    activeSelection?: any;
   } {
     let parsed: any;
 
@@ -223,7 +226,10 @@ export class ProjectDeserializer {
       referenceAngle,
       referenceVisible,
       referenceLocked,
-      customPalette
+      customPalette,
+      selectedFrameId: typeof (parsed as any).selectedFrameId === 'string' ? (parsed as any).selectedFrameId : undefined,
+      selectedLayerId: typeof (parsed as any).selectedLayerId === 'string' ? (parsed as any).selectedLayerId : undefined,
+      activeSelection: (parsed as any).activeSelection || undefined
     };
   }
 }

@@ -766,7 +766,18 @@ export default function App() {
 
   // Modals
   const [showSplashScreen, setShowSplashScreen] = useState(false);
-  const [welcomeOpen, setWelcomeOpen] = useState(true);
+  const [welcomeOpen, setWelcomeOpen] = useState<boolean>(() => {
+    try {
+      const isCrashDetected = localStorage.getItem('onepixel_crash_detected') === 'true';
+      const isCleanExit = localStorage.getItem('onepixel_clean_exit') === 'true';
+      const backup = localStorage.getItem('pixel_art_autosave_backup');
+      const isAbnormalExit = isCrashDetected || (!isCleanExit && Boolean(backup));
+      if (isAbnormalExit && backup) {
+        return false; // Do not show welcome screen first when recovery is pending
+      }
+    } catch {}
+    return true;
+  });
   const [welcomeNewProjectOpen, setWelcomeNewProjectOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
@@ -1638,67 +1649,147 @@ export default function App() {
     const isAbnormalExit = isCrashDetected || (!isCleanExit && Boolean(backup));
 
     if (isAbnormalExit && backup) {
-      setTimeout(() => {
-        try {
-          const deserialized = ProjectDeserializer.deserialize(backup);
-          if (deserialized && deserialized.project) {
-            WindowSystem.getInstance().confirm(
-              'Recuperar Proyecto tras Cierre Inesperado',
-              `Se ha detectado un cierre inesperado de tu sesión anterior en el proyecto "${deserialized.project.name || 'Sin título'}". ¿Deseas recuperar este trabajo pendiente?`,
-              'Sí, Recuperar',
-              'Descartar y Nuevo Lienzo'
-            ).then((confirmed) => {
-              if (confirmed) {
-                // Restore backup
-                setProject(deserialized.project);
-                const restoredSymmetry = deserialized.symmetry || { x: false, y: false, radial: false, radialCount: 4, centerX: deserialized.project.width / 2, centerY: deserialized.project.height / 2 };
-                const restoredTiling = deserialized.tiling || { active: false, repeatX: true, repeatY: true };
-                setSymmetry(restoredSymmetry);
-                setTiling(restoredTiling);
-                if (deserialized.customPalette) {
-                  setCustomPalette(deserialized.customPalette);
-                }
-                const restoredTab: OpenProjectTab = {
-                  id: deserialized.project.id || `proj-${Date.now()}`,
-                  project: deserialized.project,
-                  selectedFrameId: deserialized.project.frames[0]?.id || '',
-                  selectedLayerId: deserialized.project.layers[0]?.id || '',
-                  undoStack: [],
-                  redoStack: [],
-                  symmetry: restoredSymmetry,
-                  tiling: restoredTiling,
-                  hasDownloadedInitialFile: deserialized.project.hasDownloadedInitialFile
-                };
-                lastSavedContentRefs.current[restoredTab.id] = getProjectContentString(deserialized.project);
-                setTabs([restoredTab]);
-                setActiveTabId(restoredTab.id);
-                setSelectedFrameId(restoredTab.selectedFrameId);
-                setSelectedLayerId(restoredTab.selectedLayerId);
-                setFrameSelection({
-                  activeFrameId: restoredTab.selectedFrameId,
-                  focusedFrameId: restoredTab.selectedFrameId,
-                  anchorFrameId: restoredTab.selectedFrameId,
-                  selectedFrameIds: restoredTab.selectedFrameId ? [restoredTab.selectedFrameId] : [],
-                });
-                setWelcomeOpen(false);
-                localStorage.removeItem('pixel_art_autosave_backup');
-                localStorage.removeItem('onepixel_crash_detected');
-                localStorage.setItem('onepixel_clean_exit', 'false');
-                showToast('Proyecto recuperado con éxito tras el cierre inesperado', 'success');
-              } else {
-                localStorage.removeItem('pixel_art_autosave_backup');
-                localStorage.removeItem('onepixel_crash_detected');
-                localStorage.setItem('onepixel_clean_exit', 'false');
-                initDefaultCanvas(32, 32);
-                showToast('Copia descartada. Se ha iniciado un nuevo lienzo limpio.', 'info');
-              }
-            });
-            return;
-          }
-        } catch (e) {
-          console.error('Error parsing crash recovery backup:', e);
+      let deserialized: any = null;
+      try {
+        deserialized = ProjectDeserializer.deserialize(backup);
+      } catch (e) {
+        console.error('Error parsing crash recovery backup:', e);
+      }
+
+      if (deserialized && deserialized.project) {
+        // Load custom swatches & library palettes ready for editor
+        const swatches = localStorage.getItem('pixel_art_custom_swatches');
+        if (swatches) {
+          try {
+            setCustomPalette(JSON.parse(swatches));
+          } catch (e) {}
         }
-      }, 500);
+        loadLibraryPalettes();
+
+        setTimeout(() => {
+          WindowSystem.getInstance().confirm(
+            translate('dialogs.backupFoundTitle', preferences.language) || 'Recuperar Proyecto tras Cierre Inesperado',
+            translate('dialogs.backupFoundMsg', preferences.language, { name: deserialized.project.name || 'Sin título' }) || `Se ha detectado un cierre inesperado de tu sesión anterior en el proyecto "${deserialized.project.name || 'Sin título'}". ¿Deseas recuperar este trabajo pendiente?`,
+            translate('dialogs.restoreBackup', preferences.language) || 'Recuperar',
+            'Descartar'
+          ).then((confirmed) => {
+            if (confirmed) {
+              // === CASO A: RECUPERAR ===
+              // 1. Restaurar backup exactamente
+              setProject(deserialized.project);
+              const restoredSymmetry = deserialized.symmetry || { x: false, y: false, radial: false, radialCount: 4, centerX: deserialized.project.width / 2, centerY: deserialized.project.height / 2 };
+              const restoredTiling = deserialized.tiling || { active: false, repeatX: true, repeatY: true };
+              setSymmetry(restoredSymmetry);
+              setTiling(restoredTiling);
+              if (deserialized.customPalette) {
+                setCustomPalette(deserialized.customPalette);
+              }
+
+              // Restore target active frame and layer with safe fallbacks
+              const targetFrameId = (deserialized as any).selectedFrameId || 
+                (deserialized.project as any).selectedFrameId ||
+                (deserialized as any).activeFrameId ||
+                (deserialized.project.frames && deserialized.project.frames[0]?.id) || '';
+
+              const validFrameId = (deserialized.project.frames && deserialized.project.frames.some((f: any) => f.id === targetFrameId))
+                ? targetFrameId
+                : (deserialized.project.frames && deserialized.project.frames[0]?.id) || '';
+
+              const targetLayerId = (deserialized as any).selectedLayerId ||
+                (deserialized.project as any).selectedLayerId ||
+                (deserialized.project.layers && deserialized.project.layers[0]?.id) || '';
+
+              const validLayerId = (deserialized.project.layers && deserialized.project.layers.some((l: any) => l.id === targetLayerId))
+                ? targetLayerId
+                : (deserialized.project.layers && deserialized.project.layers[0]?.id) || '';
+
+              const restoredTab: OpenProjectTab = {
+                id: deserialized.project.id || `proj-${Date.now()}`,
+                project: deserialized.project,
+                selectedFrameId: validFrameId,
+                selectedLayerId: validLayerId,
+                undoStack: [],
+                redoStack: [],
+                symmetry: restoredSymmetry,
+                tiling: restoredTiling,
+                hasDownloadedInitialFile: deserialized.project.hasDownloadedInitialFile
+              };
+              lastSavedContentRefs.current[restoredTab.id] = getProjectContentString(deserialized.project);
+              setTabs([restoredTab]);
+              setActiveTabId(restoredTab.id);
+              setSelectedFrameId(validFrameId);
+              setSelectedLayerId(validLayerId);
+              setFrameSelection({
+                activeFrameId: validFrameId,
+                focusedFrameId: validFrameId,
+                anchorFrameId: validFrameId,
+                selectedFrameIds: validFrameId ? [validFrameId] : [],
+              });
+
+              // Restore active selection if present in recovery state
+              const savedSelection = (deserialized as any).activeSelection || (deserialized.project as any).activeSelection;
+              if (savedSelection && savedSelection.active && Array.isArray(savedSelection.pixels)) {
+                setActiveSelection(savedSelection);
+              }
+
+              // 2. Abrir directamente el documento recuperado sin WelcomeScreen
+              setWelcomeOpen(false);
+              setWelcomeNewProjectOpen(false);
+
+              // 3. Limpiar backup y flag de crash, marcar sesión activa
+              localStorage.removeItem('pixel_art_autosave_backup');
+              localStorage.removeItem('onepixel_crash_detected');
+              localStorage.setItem('onepixel_clean_exit', 'false');
+              showToast(translate('dialogs.backupRestoredSuccess', preferences.language) || 'Proyecto recuperado con éxito tras el cierre inesperado', 'success');
+            } else {
+              // === CASO B: DESCARTAR ===
+              // 1. Eliminar/invalidar recuperación de forma limpia
+              localStorage.removeItem('pixel_art_autosave_backup');
+              localStorage.removeItem('pixel_art_active_session');
+              localStorage.removeItem('onepixel_crash_detected');
+              localStorage.setItem('onepixel_clean_exit', 'false');
+
+              // 2. NO crear ningún canvas automáticamente (garantizar estado vacío neutral)
+              setProject(null);
+              setTabs([]);
+              setActiveTabId('');
+              setSelectedFrameId('');
+              setSelectedLayerId('');
+              setUndoStack([]);
+              setRedoStack([]);
+              setActiveSelection({ active: false, pixels: [] });
+
+              // 3. Mostrar el WelcomeScreen para que el usuario decida qué hacer
+              setWelcomeOpen(true);
+              setWelcomeNewProjectOpen(false);
+
+              showToast('Recuperación descartada.', 'info');
+            }
+          });
+        }, 300);
+
+        return () => {
+          if (playIntervalRef.current) clearInterval(playIntervalRef.current);
+        };
+      } else {
+        // Fallback si la copia de seguridad está corrupta o no es válida:
+        // Limpiar el estado corrupto y mostrar WelcomeScreen sin crear un lienzo 32x32 automático
+        localStorage.removeItem('pixel_art_autosave_backup');
+        localStorage.removeItem('pixel_art_active_session');
+        localStorage.removeItem('onepixel_crash_detected');
+        localStorage.setItem('onepixel_clean_exit', 'false');
+        setProject(null);
+        setTabs([]);
+        setActiveTabId('');
+        setSelectedFrameId('');
+        setSelectedLayerId('');
+        setWelcomeOpen(true);
+        setWelcomeNewProjectOpen(false);
+        showToast('No se pudo restaurar la sesión anterior. Abriendo menú principal.', 'info');
+        return () => {
+          if (playIntervalRef.current) clearInterval(playIntervalRef.current);
+        };
+      }
     }
 
     // Scenario 2: Normal startup (default)
@@ -1744,7 +1835,12 @@ export default function App() {
         const currentStr = ProjectSerializer.serializeToString(project, {
           symmetry,
           tiling,
-          customPalette
+          customPalette,
+          extra: {
+            selectedFrameId,
+            selectedLayerId,
+            activeSelection
+          } as any
         });
         if (currentStr !== lastAutosavedProjectRef.current) {
           try {
@@ -1767,7 +1863,7 @@ export default function App() {
     return () => {
       clearInterval(interval);
     };
-  }, [project, preferences.autoSaveEnabled, autoSaveIntervalMinutes, symmetry, tiling, customPalette, tabs.length]);
+  }, [project, preferences.autoSaveEnabled, autoSaveIntervalMinutes, symmetry, tiling, customPalette, tabs.length, selectedFrameId, selectedLayerId, activeSelection]);
 
   // Auto-backup session locally on change if auto-save is enabled (Throttled/debounced session save)
   useEffect(() => {
@@ -1777,7 +1873,12 @@ export default function App() {
           const sessionStr = ProjectSerializer.serializeToString(project, {
             symmetry,
             tiling,
-            customPalette
+            customPalette,
+            extra: {
+              selectedFrameId,
+              selectedLayerId,
+              activeSelection
+            } as any
           });
           localStorage.setItem('pixel_art_active_session', sessionStr);
           localStorage.setItem('pixel_art_autosave_backup', sessionStr);
@@ -1798,7 +1899,7 @@ export default function App() {
         localStorage.removeItem('pixel_art_active_session');
       }
     }
-  }, [project, preferences.autoSaveEnabled, symmetry, tiling, customPalette, tabs.length]);
+  }, [project, preferences.autoSaveEnabled, symmetry, tiling, customPalette, tabs.length, selectedFrameId, selectedLayerId, activeSelection]);
 
   // --- PLAYBACK ENGINE ---
   useEffect(() => {
@@ -5042,9 +5143,8 @@ export default function App() {
         isOpen={initialConsentOpen}
         onAccept={() => {
           setInitialConsentOpen(false);
-          setWelcomeOpen(false);
           if (!project) {
-            initDefaultCanvas(32, 32);
+            setWelcomeOpen(true);
           }
         }}
         onDecline={() => {

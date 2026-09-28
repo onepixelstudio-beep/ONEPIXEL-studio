@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { PixelProject, ToolType } from '../types';
 import { useResponsive } from '../context/ResponsiveContext';
-import { parseCompatibleFileToProject } from '../utils/specializedImporters';
+import { parseCompatibleFileToProject, getCompatibleFileDimensions } from '../utils/specializedImporters';
 import ImportModal from './ImportModal';
 import RecentProjectsModal from './RecentProjectsModal';
 import GenericPromptModal from './GenericPromptModal';
@@ -475,6 +475,63 @@ const HeaderMenu = React.memo(function HeaderMenu({
     }
 
     try {
+      const dims = await getCompatibleFileDimensions(file);
+      if (dims.width > 600 || dims.height > 600) {
+        // Safe interactive prompt to resize before importing as layer
+        setActivePrompt({
+          title: translate('headerMenu.openImageTitle', language as any),
+          description: translate('headerMenu.openCanvasSizeDesc', language as any, { width: dims.width, height: dims.height }),
+          fields: [
+            { 
+              key: 'sizeStr', 
+              label: translate('headerMenu.openDimensionsLabel', language as any), 
+              type: 'text', 
+              defaultValue: `600,${Math.min(600, Math.round((dims.height / dims.width) * 600)) || 600}` 
+            }
+          ],
+          confirmText: translate('headerMenu.openConfirm', language as any),
+          onConfirm: async (values) => {
+            const sizeStr = values.sizeStr;
+            let targetW = 600;
+            let targetH = 600;
+            if (sizeStr) {
+              if (sizeStr.includes(',')) {
+                const parts = sizeStr.split(',');
+                targetW = parseInt(parts[0]) || 600;
+                targetH = parseInt(parts[1]) || 600;
+              } else {
+                const parsedSize = parseInt(sizeStr);
+                if (parsedSize) {
+                  targetW = parsedSize;
+                  targetH = parsedSize;
+                }
+              }
+            }
+
+            if (targetW > 600 || targetH > 600 || targetW < 4 || targetH < 4) {
+              showToast?.(translate('headerMenu.canvasLimitsError', language as any), 'error');
+              return;
+            }
+
+            try {
+              const parsedProj = await parseCompatibleFileToProject(file, { targetWidth: targetW, targetHeight: targetH });
+              setImportFileData({
+                file,
+                name: file.name,
+                width: parsedProj.width,
+                height: parsedProj.height,
+                parsedProj
+              });
+              setImportModalOpen(true);
+            } catch (err: any) {
+              console.error(err);
+              showToast?.(err.message || 'Error al analizar el archivo de imagen para importar.', 'error');
+            }
+          }
+        });
+        return;
+      }
+
       const parsedProj = await parseCompatibleFileToProject(file);
       setImportFileData({
         file,
@@ -484,9 +541,9 @@ const HeaderMenu = React.memo(function HeaderMenu({
         parsedProj
       });
       setImportModalOpen(true);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      showToast?.('Error al analizar el archivo de imagen para importar.', 'error');
+      showToast?.(err.message || 'Error al analizar el archivo de imagen para importar.', 'error');
     }
   };
 
@@ -695,74 +752,15 @@ const HeaderMenu = React.memo(function HeaderMenu({
               showToast?.(translate('toasts.maxResolutionExceeded', language as any), 'error');
               return;
             }
-            setActivePrompt({
-              title: translate('headerMenu.openProjectTitle', language as any),
-              description: translate('headerMenu.openCanvasSizeDesc', language as any, { width: parsed.width, height: parsed.height }),
-              fields: [
-                { key: 'sizeStr', label: translate('headerMenu.openDimensionsLabel', language as any), type: 'text', defaultValue: `${parsed.width},${parsed.height}` }
-              ],
-              confirmText: translate('headerMenu.openConfirm', language as any),
-              onConfirm: (values) => {
-                const sizeStr = values.sizeStr;
-                let targetW = parsed.width;
-                let targetH = parsed.height;
-                if (sizeStr) {
-                  if (sizeStr.includes(',')) {
-                    const parts = sizeStr.split(',');
-                    targetW = parseInt(parts[0]) || parsed.width;
-                    targetH = parseInt(parts[1]) || parsed.height;
-                  } else {
-                    const parsedSize = parseInt(sizeStr);
-                    if (parsedSize) {
-                      targetW = parsedSize;
-                      targetH = parsedSize;
-                    }
-                  }
-                }
-
-                if (targetW > 600 || targetH > 600 || targetW < 4 || targetH < 4) {
-                  showToast?.(translate('headerMenu.canvasLimitsError', language as any), 'error');
-                  return;
-                }
-
-                let finalParsed = parsed;
-                if (targetW !== parsed.width || targetH !== parsed.height) {
-                  const scaledPixels: any = {};
-                  for (const frameId of Object.keys(parsed.pixels)) {
-                    scaledPixels[frameId] = {};
-                    for (const layerId of Object.keys(parsed.pixels[frameId])) {
-                      const arr = parsed.pixels[frameId][layerId];
-                      if (Array.isArray(arr)) {
-                        const newArr = new Array(targetW * targetH).fill('');
-                        for (let y = 0; y < targetH; y++) {
-                          const srcY = Math.floor((y / targetH) * parsed.height);
-                          for (let x = 0; x < targetW; x++) {
-                            const srcX = Math.floor((x / targetW) * parsed.width);
-                            newArr[y * targetW + x] = arr[srcY * parsed.width + srcX] || '';
-                          }
-                        }
-                        scaledPixels[frameId][layerId] = newArr;
-                      }
-                    }
-                  }
-                  finalParsed = {
-                    ...parsed,
-                    width: targetW,
-                    height: targetH,
-                    pixels: scaledPixels
-                  };
-                }
-
-                const finalWithMetadata = {
-                  ...finalParsed,
-                  fileHandle: fileHandle || undefined,
-                  hasBeenSavedLocally: true,
-                  fileFormat: 'onepixel'
-                };
-                onImportProject(finalWithMetadata as PixelProject);
-                showToast?.(translate('headerMenu.projectOpenedSuccess', language as any), 'success');
-              }
-            });
+            // Open native onepixel / JSON project cleanly with its native canvas dimensions
+            const finalWithMetadata = {
+              ...parsed,
+              fileHandle: fileHandle || undefined,
+              hasBeenSavedLocally: true,
+              fileFormat: 'onepixel'
+            };
+            onImportProject(finalWithMetadata as PixelProject);
+            showToast?.(translate('headerMenu.projectOpenedSuccess', language as any), 'success');
           } else {
             showToast?.(translate('headerMenu.nativeInvalidError', language as any), 'error');
           }
@@ -777,72 +775,59 @@ const HeaderMenu = React.memo(function HeaderMenu({
     // 2. Image and Specialized formats (PNG, JPEG, GIF, PSD, ORA, ASE, BMP, WEBP)
     if (['png', 'jpeg', 'jpg', 'gif', 'bmp', 'webp', 'psd', 'ora', 'ase', 'aseprite'].includes(ext || '')) {
       try {
-        const newProject = await parseCompatibleFileToProject(file);
-        setActivePrompt({
-          title: translate('headerMenu.openImageTitle', language as any),
-          description: translate('headerMenu.openCanvasSizeDesc', language as any, { width: newProject.width, height: newProject.height }),
-          fields: [
-            { key: 'sizeStr', label: translate('headerMenu.openDimensionsLabel', language as any), type: 'text', defaultValue: `${newProject.width},${newProject.height}` }
-          ],
-          confirmText: translate('headerMenu.openConfirm', language as any),
-          onConfirm: (values) => {
-            const sizeStr = values.sizeStr;
-            let targetW = newProject.width;
-            let targetH = newProject.height;
-            if (sizeStr) {
-              if (sizeStr.includes(',')) {
-                const parts = sizeStr.split(',');
-                targetW = parseInt(parts[0]) || newProject.width;
-                targetH = parseInt(parts[1]) || newProject.height;
-              } else {
-                const parsedSize = parseInt(sizeStr);
-                if (parsedSize) {
-                  targetW = parsedSize;
-                  targetH = parsedSize;
-                }
-              }
-            }
-
-            if (targetW > 600 || targetH > 600 || targetW < 4 || targetH < 4) {
-              showToast?.(translate('headerMenu.canvasLimitsError', language as any), 'error');
-              return;
-            }
-
-            let scaledProject = newProject;
-            if (targetW !== newProject.width || targetH !== newProject.height) {
-              const scaledPixels: any = {};
-              for (const frameId of Object.keys(newProject.pixels)) {
-                scaledPixels[frameId] = {};
-                for (const layerId of Object.keys(newProject.pixels[frameId])) {
-                  const arr = newProject.pixels[frameId][layerId];
-                  if (Array.isArray(arr)) {
-                    const newArr = new Array(targetW * targetH).fill('');
-                    for (let y = 0; y < targetH; y++) {
-                      const srcY = Math.floor((y / targetH) * newProject.height);
-                      for (let x = 0; x < targetW; x++) {
-                        const srcX = Math.floor((x / targetW) * newProject.width);
-                        newArr[y * targetW + x] = arr[srcY * newProject.width + srcX] || '';
-                      }
-                    }
-                    scaledPixels[frameId][layerId] = newArr;
+        const dims = await getCompatibleFileDimensions(file);
+        if (dims.width > 600 || dims.height > 600) {
+          // If external image exceeds maximum supported limits, prompt user to scale down
+          setActivePrompt({
+            title: translate('headerMenu.openImageTitle', language as any),
+            description: translate('headerMenu.openCanvasSizeDesc', language as any, { width: dims.width, height: dims.height }),
+            fields: [
+              { key: 'sizeStr', label: translate('headerMenu.openDimensionsLabel', language as any), type: 'text', defaultValue: `600,${Math.min(600, Math.round((dims.height / dims.width) * 600)) || 600}` }
+            ],
+            confirmText: translate('headerMenu.openConfirm', language as any),
+            onConfirm: async (values) => {
+              const sizeStr = values.sizeStr;
+              let targetW = 600;
+              let targetH = 600;
+              if (sizeStr) {
+                if (sizeStr.includes(',')) {
+                  const parts = sizeStr.split(',');
+                  targetW = parseInt(parts[0]) || 600;
+                  targetH = parseInt(parts[1]) || 600;
+                } else {
+                  const parsedSize = parseInt(sizeStr);
+                  if (parsedSize) {
+                    targetW = parsedSize;
+                    targetH = parsedSize;
                   }
                 }
               }
-              scaledProject = {
-                ...newProject,
-                width: targetW,
-                height: targetH,
-                pixels: scaledPixels
-              };
-            }
 
-            onImportProject(scaledProject);
-            showToast?.(translate('headerMenu.projectOpenedSuccess', language as any), 'success');
-          }
-        });
-      } catch (err) {
+              if (targetW > 600 || targetH > 600 || targetW < 4 || targetH < 4) {
+                showToast?.(translate('headerMenu.canvasLimitsError', language as any), 'error');
+                return;
+              }
+
+              try {
+                const scaledProject = await parseCompatibleFileToProject(file, { targetWidth: targetW, targetHeight: targetH });
+                onImportProject(scaledProject);
+                showToast?.(translate('headerMenu.projectOpenedSuccess', language as any), 'success');
+              } catch (scaleErr: any) {
+                console.error(scaleErr);
+                showToast?.(scaleErr.message || translate('headerMenu.nativeReadError', language as any), 'error');
+              }
+            }
+          });
+          return;
+        }
+
+        // Direct 1:1 opening of compatible images without blocking modal
+        const newProject = await parseCompatibleFileToProject(file);
+        onImportProject(newProject);
+        showToast?.(translate('headerMenu.projectOpenedSuccess', language as any), 'success');
+      } catch (err: any) {
         console.error(err);
-        showToast?.(translate('headerMenu.nativeReadError', language as any), 'error');
+        showToast?.(err?.message || translate('headerMenu.nativeReadError', language as any), 'error');
       }
     } else {
       showToast?.(translate('headerMenu.nativeInvalidError', language as any), 'error');
@@ -851,32 +836,38 @@ const HeaderMenu = React.memo(function HeaderMenu({
 
   const handleOpenProjectClick = async () => {
     setActiveMenu(null);
-    if (typeof window !== 'undefined' && typeof (window as any).showOpenFilePicker === 'function') {
-      try {
-        const handles = await (window as any).showOpenFilePicker({
-          types: [
-            {
-              description: 'Archivos compatibles (*.onepixel, *.json, imágenes)',
-              accept: {
-                'application/json': ['.onepixel', '.pixelproject', '.json'],
-                'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.psd', '.ora', '.ase', '.aseprite']
-              }
-            }
-          ],
-          multiple: false
-        });
-        if (handles && handles.length > 0) {
-          const handle = handles[0];
-          const file = await handle.getFile();
-          await processOpenedFile(file, handle);
-          return;
-        }
-      } catch (e: any) {
-        if (e.name === 'AbortError') return;
-        // If blocked by browser policy, fallback to input
-      }
+    // On mobile devices or browsers without native top-level picker support,
+    // trigger file input directly to preserve the user activation gesture
+    const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+    if (isMobileDevice || typeof window === 'undefined' || typeof (window as any).showOpenFilePicker !== 'function') {
+      openFileInputRef.current?.click();
+      return;
     }
-    openFileInputRef.current?.click();
+
+    try {
+      const handles = await (window as any).showOpenFilePicker({
+        types: [
+          {
+            description: 'Archivos compatibles (*.onepixel, *.json, imágenes)',
+            accept: {
+              'application/json': ['.onepixel', '.pixelproject', '.json'],
+              'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.psd', '.ora', '.ase', '.aseprite']
+            }
+          }
+        ],
+        multiple: false
+      });
+      if (handles && handles.length > 0) {
+        const handle = handles[0];
+        const file = await handle.getFile();
+        await processOpenedFile(file, handle);
+        return;
+      }
+    } catch (e: any) {
+      if (e.name === 'AbortError') return;
+      // If blocked by browser policy, fallback to input
+      openFileInputRef.current?.click();
+    }
   };
 
   const handleOpenFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {

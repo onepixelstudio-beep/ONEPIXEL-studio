@@ -31,6 +31,10 @@
   /* Base Spacing & Sizing Scale */
   --ui-spacing: 0.5rem;
   --ui-font-scale: 1;
+
+  /* Workspace / Canvas Area Surface */
+  --ui-workspace-bg: #0F3D34;
+  --ui-workspace-border: #17382B;
 }
 
 /* Explicit font family rules for full cross-browser reliability */
@@ -89,14 +93,21 @@
   border-color: var(--theme-accent) !important;
 }
 
+/* Universal dynamic mapping for active workspace / canvas draw area surface */
+#canvas-draw-area {
+  background-color: var(--ui-workspace-bg);
+  border-color: var(--ui-workspace-border);
+}
+
 /* ==========================================================================
    1. PALETAS DE INTERFAZ & TEMAS COMPLETOS
    (Dorado, Plata, Rosa Silvestre, Gris Carbón) x (Normal, Oscuro, Claro)
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
-   1.1 DORADO (OnePixel Studio Classic / Esmeralda & Oro)
+   1.1 ESMERALDA / DORADO (OnePixel Studio Classic / Esmeralda & Crema)
    -------------------------------------------------------------------------- */
+.interface-emerald,
 .interface-gold,
 :root {
   --theme-accent: #C8A96A;
@@ -106,16 +117,22 @@
   --theme-accent-border: #C8A96A;
   --theme-accent-text: #C8A96A;
   --theme-accent-contrast-text: #102419;
+  --ui-workspace-bg: #0F3D34;
+  --ui-workspace-border: #17382B;
 }
 
-/* Dorado + Normal */
+/* Esmeralda / Dorado + Normal */
+.theme-standard.interface-emerald,
 .theme-standard.interface-gold,
+#app-root.theme-standard.interface-emerald,
 #app-root.theme-standard.interface-gold {
   --ruler-bg: #102419;
   --ruler-border: #17382B;
   --ruler-text: #F7F6F1;
   --ruler-tick: #C8A96A;
   --ruler-indicator: #C8A96A;
+  --ui-workspace-bg: #0F3D34;
+  --ui-workspace-border: #17382B;
   background-color: #0F3D34 !important;
   color: #F7F6F1 !important;
 }
@@ -213,14 +230,18 @@
   background: #C8A96A !important;
 }
 
-/* Dorado + Oscuro */
+/* Esmeralda / Dorado + Oscuro */
+.theme-dark.interface-emerald,
 .theme-dark.interface-gold,
+#app-root.theme-dark.interface-emerald,
 #app-root.theme-dark.interface-gold {
   --ruler-bg: #0C1E17;
   --ruler-border: #143529;
   --ruler-text: #E6F0EC;
   --ruler-tick: #C8A96A;
   --ruler-indicator: #C8A96A;
+  --ui-workspace-bg: #07130F;
+  --ui-workspace-border: #143529;
   background-color: #07130F !important;
   color: #FFFFFF !important;
 }
@@ -318,14 +339,18 @@
   background: #C8A96A !important;
 }
 
-/* Dorado + Claro (Soft Grayish Sage) */
+/* Esmeralda / Dorado + Claro (Soft Grayish Sage) */
+.theme-light.interface-emerald,
 .theme-light.interface-gold,
+#app-root.theme-light.interface-emerald,
 #app-root.theme-light.interface-gold {
   --ruler-bg: #EAF0EC;
   --ruler-border: #CAD5D0;
   --ruler-text: #0F2F26;
   --ruler-tick: #52756B;
   --ruler-indicator: #C8A96A;
+  --ui-workspace-bg: #DDE5E1;
+  --ui-workspace-border: #CAD5D0;
   background-color: #DDE5E1 !important;
   color: #0F2F26 !important;
 }
@@ -455,6 +480,8 @@
   --theme-accent-border: #CBD5E1;
   --theme-accent-text: #E2E8F0;
   --theme-accent-contrast-text: #0F172A;
+  --ui-workspace-bg: #1E2638;
+  --ui-workspace-border: #293548;
 }
 
 /* Plata + Normal */
@@ -465,6 +492,8 @@
   --ruler-text: #F8FAFC;
   --ruler-tick: #CBD5E1;
   --ruler-indicator: #CBD5E1;
+  --ui-workspace-bg: #1E2638;
+  --ui-workspace-border: #293548;
   background-color: #1E2638 !important;
   color: #F8FAFC !important;
 }
@@ -570,6 +599,8 @@
   --ruler-text: #E2E8F0;
   --ruler-tick: #94A3B8;
   --ruler-indicator: #E2E8F0;
+  --ui-workspace-bg: #080C14;
+  --ui-workspace-border: #1B2436;
   background-color: #080C14 !important;
   color: #FFFFFF !important;
 }
@@ -675,6 +706,8 @@
   --ruler-text: #0F172A;
   --ruler-tick: #64748B;
   --ruler-indicator: #334155;
+  --ui-workspace-bg: #DDE3EA;
+  --ui-workspace-border: #CBD5E1;
   background-color: #DDE3EA !important;
   color: #0F172A !important;
 }
@@ -804,6 +837,8 @@
   --theme-accent-border: #F472B6;
   --theme-accent-text: #F472B6;
   --theme-accent-contrast-text: #FFFFFF;
+  --ui-workspace-bg: #2A1625;
+  --ui-workspace-border: #431C38;
 }
 
 /* Rosa + Normal */
@@ -814,6 +849,8 @@
   --ruler-text: #FCE7F3;
   --ruler-tick: #F472B6;
   --ruler-indicator: #F472B6;
+  --ui-workspace-bg: #2A1625;
+  --ui-workspace-border: #431C38;
   background-color: #2A1625 !important;
   color: #FCE7F3 !important;
 }
@@ -919,6 +956,8 @@
   --ruler-text: #FCE7F3;
   --ruler-tick: #FB7185;
   --ruler-indicator: #FB7185;
+  --ui-workspace-bg: #12050E;
+  --ui-workspace-border: #2E1025;
   background-color: #12050E !important;
   color: #FFFFFF !important;
 }
@@ -1024,6 +1063,8 @@
   --ruler-text: #2E081F;
   --ruler-tick: #70385B;
   --ruler-indicator: #DB2777;
+  --ui-workspace-bg: #EADBDF;
+  --ui-workspace-border: #D8C2C9;
   background-color: #EADBDF !important;
   color: #2E081F !important;
 }
@@ -1153,6 +1194,8 @@
   --theme-accent-border: #94A3B8;
   --theme-accent-text: #CBD5E1;
   --theme-accent-contrast-text: #090A0C;
+  --ui-workspace-bg: #1F2024;
+  --ui-workspace-border: #2D2F36;
 }
 
 /* Carbón + Normal */
@@ -1163,6 +1206,8 @@
   --ruler-text: #F4F4F5;
   --ruler-tick: #94A3B8;
   --ruler-indicator: #94A3B8;
+  --ui-workspace-bg: #1F2024;
+  --ui-workspace-border: #2D2F36;
   background-color: #1F2024 !important;
   color: #F4F4F5 !important;
 }
@@ -1268,6 +1313,8 @@
   --ruler-text: #E4E4E7;
   --ruler-tick: #71717A;
   --ruler-indicator: #CBD5E1;
+  --ui-workspace-bg: #0A0B0D;
+  --ui-workspace-border: #1E2026;
   background-color: #0A0B0D !important;
   color: #FFFFFF !important;
 }
@@ -1373,6 +1420,8 @@
   --ruler-text: #111827;
   --ruler-tick: #4B5563;
   --ruler-indicator: #1F2937;
+  --ui-workspace-bg: #DFDFE3;
+  --ui-workspace-border: #CBD0D8;
   background-color: #DFDFE3 !important;
   color: #111827 !important;
 }
@@ -1799,15 +1848,103 @@ button,
 }
 
 /* ==========================================================================
-   STRICT MOBILE HORIZONTAL OVERFLOW PREVENTION
+   SEMANTIC THEME EXTENSION FOR MOBILE & DOCK SURFACES
    ========================================================================== */
-html, body, #root {
-  max-width: 100vw !important;
-  overflow-x: hidden !important;
-  box-sizing: border-box !important;
+.interface-charcoal #mobile-single-top-bar,
+.interface-charcoal #mobile-bottom-dock,
+.interface-charcoal #mobile-dock-animation-strip,
+.interface-charcoal #mobile-drawer-container,
+.interface-charcoal #mobile-menu-drawer,
+.interface-charcoal #mobile-project-menu-overlay,
+.interface-charcoal .mobile-surface-panel {
+  background-color: #101114 !important;
+  border-color: #22242B !important;
 }
 
-*, *::before, *::after {
-  box-sizing: border-box;
+.interface-charcoal #mobile-project-menu-overlay button:not(.bg-white\/10),
+.interface-charcoal #mobile-project-menu-overlay .bg-\[\#102419\],
+.interface-charcoal #mobile-project-menu-overlay .border-\[\#1b3d2b\],
+.interface-charcoal #mobile-menu-drawer button:not(.bg-white\/10),
+.interface-charcoal #mobile-menu-drawer .bg-\[\#102419\],
+.interface-charcoal #mobile-menu-drawer .border-\[\#1b3d2b\] {
+  background-color: #16171B !important;
+  border-color: #2D2F36 !important;
 }
+
+.interface-slate #mobile-single-top-bar,
+.interface-slate #mobile-bottom-dock,
+.interface-slate #mobile-dock-animation-strip,
+.interface-slate #mobile-drawer-container,
+.interface-slate #mobile-menu-drawer,
+.interface-slate #mobile-project-menu-overlay,
+.interface-slate .mobile-surface-panel {
+  background-color: #0F172A !important;
+  border-color: #1E293B !important;
+}
+
+.interface-slate #mobile-project-menu-overlay button:not(.bg-white\/10),
+.interface-slate #mobile-project-menu-overlay .bg-\[\#102419\],
+.interface-slate #mobile-project-menu-overlay .border-\[\#1b3d2b\],
+.interface-slate #mobile-menu-drawer button:not(.bg-white\/10),
+.interface-slate #mobile-menu-drawer .bg-\[\#102419\],
+.interface-slate #mobile-menu-drawer .border-\[\#1b3d2b\] {
+  background-color: #1E293B !important;
+  border-color: #334155 !important;
+}
+
+.interface-rose #mobile-single-top-bar,
+.interface-rose #mobile-bottom-dock,
+.interface-rose #mobile-dock-animation-strip,
+.interface-rose #mobile-drawer-container,
+.interface-rose #mobile-menu-drawer,
+.interface-rose #mobile-project-menu-overlay,
+.interface-rose .mobile-surface-panel {
+  background-color: #190C16 !important;
+  border-color: #431C38 !important;
+}
+
+.interface-rose #mobile-project-menu-overlay button:not(.bg-white\/10),
+.interface-rose #mobile-project-menu-overlay .bg-\[\#102419\],
+.interface-rose #mobile-project-menu-overlay .border-\[\#1b3d2b\],
+.interface-rose #mobile-menu-drawer button:not(.bg-white\/10),
+.interface-rose #mobile-menu-drawer .bg-\[\#102419\],
+.interface-rose #mobile-menu-drawer .border-\[\#1b3d2b\] {
+  background-color: #2A1625 !important;
+  border-color: #5B234D !important;
+}
+
+.interface-emerald #mobile-single-top-bar,
+.interface-emerald #mobile-bottom-dock,
+.interface-emerald #mobile-dock-animation-strip,
+.interface-emerald #mobile-drawer-container,
+.interface-emerald #mobile-menu-drawer,
+.interface-emerald #mobile-project-menu-overlay,
+.interface-emerald .mobile-surface-panel,
+.interface-gold #mobile-single-top-bar,
+.interface-gold #mobile-bottom-dock,
+.interface-gold #mobile-dock-animation-strip,
+.interface-gold #mobile-drawer-container,
+.interface-gold #mobile-menu-drawer,
+.interface-gold #mobile-project-menu-overlay,
+.interface-gold .mobile-surface-panel {
+  background-color: #061A12 !important;
+  border-color: #0D3322 !important;
+}
+
+.interface-emerald #mobile-project-menu-overlay button:not(.bg-white\/10),
+.interface-emerald #mobile-project-menu-overlay .bg-\[\#102419\],
+.interface-emerald #mobile-project-menu-overlay .border-\[\#1b3d2b\],
+.interface-emerald #mobile-menu-drawer button:not(.bg-white\/10),
+.interface-emerald #mobile-menu-drawer .bg-\[\#102419\],
+.interface-emerald #mobile-menu-drawer .border-\[\#1b3d2b\],
+.interface-gold #mobile-project-menu-overlay button:not(.bg-white\/10),
+.interface-gold #mobile-project-menu-overlay .bg-\[\#102419\],
+.interface-gold #mobile-project-menu-overlay .border-\[\#1b3d2b\],
+.interface-gold #mobile-menu-drawer button:not(.bg-white\/10),
+.interface-gold #mobile-menu-drawer .bg-\[\#102419\],
+.interface-gold #mobile-menu-drawer .border-\[\#1b3d2b\] {
+  background-color: #102419 !important;
+  border-color: #1b3d2b !important;
+}
+
 

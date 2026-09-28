@@ -8,7 +8,7 @@ interface RulerVerticalProps {
   height: number; // canvas height in pixels
   cursorY: number | null; // in canvas coordinate
   width?: number; // default 24
-  onStartDragNewGuide?: (e: React.MouseEvent) => void;
+  onStartDragNewGuide?: (e: React.MouseEvent | React.PointerEvent) => void;
   rulerBackground?: string;
   rulerTextColor?: string;
   rulerBorder?: string;
@@ -162,8 +162,8 @@ export const RulerVertical: React.FC<RulerVerticalProps> = ({
     }
   }, [zoom, panY, height, cursorY, width, rulerBackground, rulerTextColor, rulerBorder, theme, themeColor]);
 
-  // Handle clicking on the vertical ruler to add a guide (Photoshop / Illustrator style drag-to-create)
-  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  // Handle clicking or touching the vertical ruler to add a guide (Photoshop / Illustrator style drag-to-create)
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current || !onStartDragNewGuide) return;
     onStartDragNewGuide(e);
   };
@@ -172,8 +172,8 @@ export const RulerVertical: React.FC<RulerVerticalProps> = ({
     <div className="relative w-full h-full overflow-hidden select-none">
       <canvas
         ref={canvasRef}
-        onMouseDown={handleMouseDown}
-        className="block cursor-crosshair select-none w-full h-full"
+        onPointerDown={handlePointerDown}
+        className="block cursor-crosshair select-none w-full h-full touch-none"
         title={translate('guides.rulerTooltip', language as any)}
         id="ruler-vertical-canvas"
       />

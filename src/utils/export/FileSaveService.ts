@@ -253,15 +253,27 @@ export class FileSaveService {
       const link = document.createElement('a');
       link.href = url;
       link.download = finalFilename;
+      link.setAttribute('rel', 'noopener');
+      link.style.display = 'none';
       document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      
+      try {
+        link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+      } catch (e) {
+        link.click();
+      }
+      
+      setTimeout(() => {
+        if (link.parentNode) {
+          document.body.removeChild(link);
+        }
+      }, 100);
     } catch (err: any) {
       throw new SaveError(`Fallo al interactuar con el DOM para descargar el archivo: ${err.message}`);
     } finally {
-      // Force immediate release of browser memory allocating the Blob URL
+      // Force release of browser memory allocating the Blob URL with mobile buffer
       try {
-        setTimeout(() => URL.revokeObjectURL(url), 100);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
       } catch (e) {
         // Safe fallback
       }

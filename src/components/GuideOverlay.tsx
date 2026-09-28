@@ -13,7 +13,7 @@ interface GuideOverlayProps {
   canvasWidth: number;
   canvasHeight: number;
   activeDragId: string | null;
-  onStartDragGuide: (id: string, e: React.MouseEvent) => void;
+  onStartDragGuide: (id: string, e: React.PointerEvent) => void;
   onRemoveGuide: (id: string) => void;
   activeSnapLines?: { x: number | null; y: number | null };
   language?: LanguageCode;
@@ -95,16 +95,16 @@ export const GuideOverlay: React.FC<GuideOverlayProps> = ({
 
           return (
             <g key={g.id} className="pointer-events-auto">
-              {/* Invisible thick line for easy hovering and dragging */}
+              {/* Invisible thick line for easy hovering and dragging with mouse or fingers */}
               <line
                 x1={sx}
                 y1={0}
                 x2={sx}
                 y2="100%"
                 stroke="transparent"
-                strokeWidth={10}
-                className={isLocked ? 'cursor-default' : 'cursor-col-resize'}
-                onMouseDown={(e) => onStartDragGuide(g.id, e)}
+                strokeWidth={28}
+                className={isLocked ? 'cursor-default' : 'cursor-col-resize touch-none'}
+                onPointerDown={(e) => onStartDragGuide(g.id, e)}
                 onMouseEnter={() => !isLocked && setHoveredId(g.id)}
                 onMouseLeave={() => setHoveredId(null)}
                 onDoubleClick={() => !isLocked && onRemoveGuide(g.id)}
@@ -120,7 +120,7 @@ export const GuideOverlay: React.FC<GuideOverlayProps> = ({
                 stroke={color}
                 strokeWidth={isHovered || isDragging || isSnapped ? 2 : 1}
                 strokeDasharray={g.isProjectLevel ? undefined : '4 4'}
-                className="transition-all duration-100 ease-out"
+                className="transition-all duration-100 ease-out pointer-events-none"
                 style={{ opacity: isHovered || isDragging || isSnapped ? 1.0 : 0.6 }}
               />
             </g>
@@ -130,16 +130,16 @@ export const GuideOverlay: React.FC<GuideOverlayProps> = ({
 
           return (
             <g key={g.id} className="pointer-events-auto">
-              {/* Invisible thick line for easy hovering and dragging */}
+              {/* Invisible thick line for easy hovering and dragging with mouse or fingers */}
               <line
                 x1={0}
                 y1={sy}
                 x2="100%"
                 y2={sy}
                 stroke="transparent"
-                strokeWidth={10}
-                className={isLocked ? 'cursor-default' : 'cursor-row-resize'}
-                onMouseDown={(e) => onStartDragGuide(g.id, e)}
+                strokeWidth={28}
+                className={isLocked ? 'cursor-default' : 'cursor-row-resize touch-none'}
+                onPointerDown={(e) => onStartDragGuide(g.id, e)}
                 onMouseEnter={() => !isLocked && setHoveredId(g.id)}
                 onMouseLeave={() => setHoveredId(null)}
                 onDoubleClick={() => !isLocked && onRemoveGuide(g.id)}
@@ -155,7 +155,7 @@ export const GuideOverlay: React.FC<GuideOverlayProps> = ({
                 stroke={color}
                 strokeWidth={isHovered || isDragging || isSnapped ? 2 : 1}
                 strokeDasharray={g.isProjectLevel ? undefined : '4 4'}
-                className="transition-all duration-100 ease-out"
+                className="transition-all duration-100 ease-out pointer-events-none"
                 style={{ opacity: isHovered || isDragging || isSnapped ? 1.0 : 0.6 }}
               />
             </g>

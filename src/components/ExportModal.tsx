@@ -451,7 +451,9 @@ export default function ExportModal({
     if (!activePlugin) return 'Unknown';
     const originalPixels = project.width * project.height;
     const numFrames = options.range === 'first' ? 1 : project.frames.length;
-    const finalScale = typeof options.scale === 'number' ? options.scale : 4;
+    const finalScale = typeof options.scale === 'number' 
+      ? options.scale 
+      : (typeof options.scale === 'string' ? parseInt(options.scale, 10) || 1 : 1);
     const outputPixelsCount = originalPixels * finalScale * finalScale * numFrames;
 
     if (activePlugin.category === 'palette') {
@@ -615,13 +617,13 @@ export default function ExportModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-xs font-sans text-slate-100 animate-in fade-in duration-200"
+      className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-2 sm:p-4 backdrop-blur-xs font-sans text-slate-100 animate-in fade-in duration-200"
       id="export-modal"
       role="dialog"
       aria-modal="true"
       aria-labelledby="export-modal-title"
     >
-      <div className="relative bg-[#0F101E] border border-[#23253F] rounded-2xl w-full max-w-5xl overflow-hidden shadow-2xl flex flex-col max-h-[92dvh] sm:max-h-[92vh]">
+      <div className="relative bg-[#0F101E] border border-[#23253F] rounded-2xl w-full max-w-5xl overflow-hidden shadow-2xl flex flex-col max-h-[96dvh] sm:max-h-[92vh]">
         
         {/* Progress Overlay */}
         {exportProgress && (
@@ -1141,7 +1143,7 @@ export default function ExportModal({
                   <span className="text-[10px] text-slate-400 font-bold uppercase">{t.resolution}</span>
                   <span className="text-xs font-bold text-white font-mono flex items-center gap-1">
                     <span>
-                      {(project.width * (parseInt(options.scale, 10) || 4))} × {(project.height * (parseInt(options.scale, 10) || 4))} px
+                      {(project.width * (typeof options.scale === 'number' ? options.scale : (parseInt(options.scale, 10) || 1)))} × {(project.height * (typeof options.scale === 'number' ? options.scale : (parseInt(options.scale, 10) || 1)))} px
                     </span>
                     <span className="text-[10px] text-slate-400 font-normal">
                       ({t.original}: {project.width}x{project.height})
@@ -1275,17 +1277,17 @@ export default function ExportModal({
         </div>
 
         {/* Footer actions */}
-        <div className="p-4 border-t border-[#102419] bg-[#102419] flex gap-3.5 shrink-0">
+        <div className="p-3 sm:p-4 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] border-t border-[#102419] bg-[#102419] flex gap-2.5 sm:gap-3.5 shrink-0">
           <button
             onClick={handleCloseModal}
-            className="flex-1 py-3 bg-[#102419] hover:bg-[#102419] rounded-xl text-xs font-semibold text-slate-200 border border-[#102419] transition outline-none"
+            className="flex-1 py-2.5 sm:py-3 bg-[#102419] hover:bg-[#102419] rounded-xl text-xs font-semibold text-slate-200 border border-[#102419] transition outline-none cursor-pointer"
           >
             {t.cancel}
           </button>
           <button
             onClick={handleExecuteExport}
             disabled={!!validationError}
-            className={`flex-1 py-3 rounded-xl text-xs font-bold tracking-wide flex items-center justify-center gap-2 transition outline-none ${
+            className={`flex-1 py-2.5 sm:py-3 rounded-xl text-xs font-bold tracking-wide flex items-center justify-center gap-2 transition outline-none cursor-pointer ${
               validationError
                 ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
                 : 'bg-[#102419] hover:bg-[#C8A96A] hover:text-[#0F3D34] text-white shadow-lg active:scale-[0.99]'

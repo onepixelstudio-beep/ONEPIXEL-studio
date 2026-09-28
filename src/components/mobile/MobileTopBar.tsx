@@ -227,8 +227,9 @@ export const MobileTopBar: React.FC<MobileTopBarProps> = React.memo(function Mob
   };
 
   const handleAction = (action?: () => void) => {
-    setIsMenuOpen(false);
+    // Execute action first so user activation gesture is preserved for file pickers/downloads
     action?.();
+    setIsMenuOpen(false);
   };
 
   return (

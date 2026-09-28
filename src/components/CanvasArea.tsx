@@ -190,6 +190,8 @@ const CanvasArea = React.memo(function CanvasArea({
   const getFractionalCanvasCoords = (clientX: number, clientY: number): { x: number; y: number } | null => {
     if (!canvasRef.current) return null;
     const rect = canvasRef.current.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return null;
+    if (!Number.isFinite(zoom) || zoom <= 0) return null;
     const x = (clientX - rect.left - panX) / zoom;
     const y = (clientY - rect.top - panY) / zoom;
     return { x, y };
@@ -216,6 +218,7 @@ const CanvasArea = React.memo(function CanvasArea({
     centerClientX: number;
     centerClientY: number;
   } | null>(null);
+  const touchPointersRef = useRef<Map<number, { clientX: number; clientY: number }>>(new Map());
 
   // Helper utility to get or resize a cached offscreen canvas
   const getCachedCanvas = (
@@ -486,11 +489,11 @@ const CanvasArea = React.memo(function CanvasArea({
   const [lassoPath, setLassoPath] = useState<{ x: number; y: number }[]>([]);
   const lastSelectionTimestampRef = useRef<number>(0);
 
-  const handleStartDragNewGuide = (type: 'horizontal' | 'vertical', e: React.MouseEvent) => {
+  const handleStartDragNewGuide = (type: 'horizontal' | 'vertical', e: React.MouseEvent | React.PointerEvent) => {
     if (guidesLocked) return;
     const id = `guide-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
-    // Get initial position corresponding to the click
+    // Get initial position corresponding to the click/touch
     const rect = document.getElementById('canvas-draw-area')?.getBoundingClientRect();
     if (!rect) return;
 
@@ -507,31 +510,42 @@ const CanvasArea = React.memo(function CanvasArea({
     setActiveDragGuideId(id);
   };
 
-  const handleStartDragGuide = (id: string, e: React.MouseEvent) => {
+  const handleStartDragGuide = (id: string, e: React.MouseEvent | React.PointerEvent) => {
     if (guidesLocked) return;
     e.stopPropagation();
     e.preventDefault();
+    if ('pointerId' in e && e.target && 'setPointerCapture' in (e.target as any)) {
+      try {
+        (e.target as Element).setPointerCapture(e.pointerId);
+      } catch {
+        // Fallback gracefully if capture fails
+      }
+    }
     setActiveDragGuideId(id);
   };
 
   useEffect(() => {
     if (!activeDragGuideId) return;
 
-    const handleGlobalMouseMove = (e: MouseEvent) => {
+    const handleGlobalPointerMove = (e: PointerEvent) => {
       const rect = document.getElementById('canvas-draw-area')?.getBoundingClientRect();
       if (!rect) return;
 
       const dragGuide = guides.find(g => g.id === activeDragGuideId);
       if (!dragGuide) return;
 
+      const clientX = e.clientX;
+      const clientY = e.clientY;
+      const altKey = e.altKey;
+
       const isSymmetryActive = symmetry && (symmetry.x || symmetry.y);
 
       if (dragGuide.type === 'vertical') {
-        const clientX = e.clientX - rect.left;
-        let newCanvasX = (clientX - panX) / zoom;
+        const localX = clientX - rect.left;
+        let newCanvasX = (localX - panX) / zoom;
         
         // Snapping:
-        if (snappingEnabled && !e.altKey) {
+        if (snappingEnabled && !altKey) {
           const context = {
             zoom,
             gridSize: gridSize || 1,
@@ -562,11 +576,11 @@ const CanvasArea = React.memo(function CanvasArea({
 
         onMoveGuide?.(activeDragGuideId, newCanvasX);
       } else {
-        const clientY = e.clientY - rect.top;
-        let newCanvasY = (clientY - panY) / zoom;
+        const localY = clientY - rect.top;
+        let newCanvasY = (localY - panY) / zoom;
 
         // Snapping:
-        if (snappingEnabled && !e.altKey) {
+        if (snappingEnabled && !altKey) {
           const context = {
             zoom,
             gridSize: gridSize || 1,
@@ -599,7 +613,7 @@ const CanvasArea = React.memo(function CanvasArea({
       }
     };
 
-    const handleGlobalMouseUp = () => {
+    const handleGlobalPointerUp = () => {
       const dragGuide = guides.find(g => g.id === activeDragGuideId);
       if (dragGuide) {
         if (dragGuide.type === 'vertical') {
@@ -617,11 +631,15 @@ const CanvasArea = React.memo(function CanvasArea({
       setActiveSnapLines({ x: null, y: null });
     };
 
-    window.addEventListener('mousemove', handleGlobalMouseMove);
-    window.addEventListener('mouseup', handleGlobalMouseUp);
+    if (typeof window === 'undefined') return;
+
+    window.addEventListener('pointermove', handleGlobalPointerMove);
+    window.addEventListener('pointerup', handleGlobalPointerUp);
+    window.addEventListener('pointercancel', handleGlobalPointerUp);
     return () => {
-      window.removeEventListener('mousemove', handleGlobalMouseMove);
-      window.removeEventListener('mouseup', handleGlobalMouseUp);
+      window.removeEventListener('pointermove', handleGlobalPointerMove);
+      window.removeEventListener('pointerup', handleGlobalPointerUp);
+      window.removeEventListener('pointercancel', handleGlobalPointerUp);
     };
   }, [activeDragGuideId, guides, panX, panY, zoom, snappingEnabled, gridVisible, guidesVisible, symmetry, project.width, project.height, selection, onMoveGuide, onRemoveGuide]);
 
@@ -2298,9 +2316,9 @@ const CanvasArea = React.memo(function CanvasArea({
       ctx.restore();
     }
 
-    // 8. Draw Symmetry Line Guides
-    const cx = Math.floor(project.width / 2);
-    const cy = Math.floor(project.height / 2);
+    // 8. Draw Symmetry Line Guides (perfectly aligned with discrete pixel centers / boundaries)
+    const axisX = project.width % 2 === 0 ? project.width / 2 : Math.floor(project.width / 2) + 0.5;
+    const axisY = project.height % 2 === 0 ? project.height / 2 : Math.floor(project.height / 2) + 0.5;
     ctx.save();
     ctx.strokeStyle = symmetryAxisColor || '#C8A96A';
     ctx.lineWidth = 1 / zoom;
@@ -2308,14 +2326,14 @@ const CanvasArea = React.memo(function CanvasArea({
 
     if (symmetry.x) {
       ctx.beginPath();
-      ctx.moveTo(cx, 0);
-      ctx.lineTo(cx, project.height);
+      ctx.moveTo(axisX, 0);
+      ctx.lineTo(axisX, project.height);
       ctx.stroke();
     }
     if (symmetry.y) {
       ctx.beginPath();
-      ctx.moveTo(0, cy);
-      ctx.lineTo(project.width, cy);
+      ctx.moveTo(0, axisY);
+      ctx.lineTo(project.width, axisY);
       ctx.stroke();
     }
     if (symmetry.radial) {
@@ -2623,19 +2641,30 @@ const CanvasArea = React.memo(function CanvasArea({
       targetPoints = targetPoints.filter(p => p.y >= 0 && p.y < project.height && p.x >= 0 && p.x < project.width && selection.pixels[p.y * project.width + p.x]);
     }
 
-    let symmetricPoints = targetPoints.flatMap(p => 
+    let rawSymmetricPoints = targetPoints.flatMap(p => 
       getSymmetricPoints(p.x, p.y, project.width, project.height, symmetry)
     );
 
     if (tiling.active) {
-      symmetricPoints = symmetricPoints.map(p => ({
+      rawSymmetricPoints = rawSymmetricPoints.map(p => ({
         x: ((p.x % project.width) + project.width) % project.width,
         y: ((p.y % project.height) + project.height) % project.height
       }));
     } else {
-      symmetricPoints = symmetricPoints.filter(p => 
+      rawSymmetricPoints = rawSymmetricPoints.filter(p => 
         p.x >= 0 && p.x < project.width && p.y >= 0 && p.y < project.height
       );
+    }
+
+    // Deduplicate points across brush footprint and symmetric reflection
+    const seenIndices = new Set<number>();
+    const symmetricPoints: { x: number; y: number }[] = [];
+    for (const p of rawSymmetricPoints) {
+      const idx = p.y * project.width + p.x;
+      if (!seenIndices.has(idx)) {
+        seenIndices.add(idx);
+        symmetricPoints.push(p);
+      }
     }
 
     symmetricPoints.forEach(p => {
@@ -2787,14 +2816,34 @@ const CanvasArea = React.memo(function CanvasArea({
 
       // Find points in prevFiltered that were removed in filtered (L-corners to revert)
       const filteredSet = new Set(filtered.map(p => `${p.x},${p.y}`));
+      const revertedIndices = new Set<number>();
       prevFiltered.forEach(p => {
         if (!filteredSet.has(`${p.x},${p.y}`)) {
-          const idx = p.y * project.width + p.x;
-          if (idx >= 0 && idx < currentLayerPixels.length) {
-            const restoredColor = initialPixels[idx] || '';
-            currentLayerPixels[idx] = restoredColor;
-            modifiedList.push({ x: p.x, y: p.y, color: restoredColor });
+          let pointsToRevert = getSymmetricPoints(p.x, p.y, project.width, project.height, symmetry);
+          if (tiling.active) {
+            pointsToRevert = pointsToRevert.map(pt => ({
+              x: ((pt.x % project.width) + project.width) % project.width,
+              y: ((pt.y % project.height) + project.height) % project.height
+            }));
+          } else {
+            pointsToRevert = pointsToRevert.filter(pt =>
+              pt.x >= 0 && pt.x < project.width && pt.y >= 0 && pt.y < project.height
+            );
           }
+          if (selection.active) {
+            pointsToRevert = pointsToRevert.filter(pt => selection.pixels[pt.y * project.width + pt.x]);
+          }
+
+          pointsToRevert.forEach(pt => {
+            const idx = pt.y * project.width + pt.x;
+            if (idx >= 0 && idx < currentLayerPixels.length && !revertedIndices.has(idx)) {
+              revertedIndices.add(idx);
+              const restoredColor = initialPixels[idx] || '';
+              currentLayerPixels[idx] = restoredColor;
+              activeModifiedIndicesRef.current.delete(idx);
+              modifiedList.push({ x: pt.x, y: pt.y, color: restoredColor });
+            }
+          });
         }
       });
 
@@ -3901,7 +3950,7 @@ const CanvasArea = React.memo(function CanvasArea({
   return (
     <div 
       ref={containerRef}
-      className={`flex-1 min-h-0 w-full h-full bg-transparent border-0 rounded-none md:bg-[#0F3D34] md:border md:border-[#0F3D34] md:rounded-xl overflow-hidden relative select-none touch-none ${getCursorClass()}`}
+      className={`flex-1 min-h-0 w-full h-full bg-[var(--ui-workspace-bg)] border-0 rounded-none md:border md:border-[var(--ui-workspace-border)] md:rounded-xl overflow-hidden relative select-none touch-none ${getCursorClass()}`}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
@@ -3923,9 +3972,9 @@ const CanvasArea = React.memo(function CanvasArea({
       id="canvas-draw-area"
     >
       
-      {/* Rulers (Encapsulated with md:contents so they are hidden on mobile phones to maximize 100% canvas area) */}
+      {/* Rulers (Visible whenever user has toggled rulers on, across Desktop, Tablet and Mobile) */}
       {rulersVisible && (
-        <div className="hidden md:contents">
+        <div className="contents">
           {/* Corner piece */}
           <div 
             className="absolute top-0 left-0 w-6 h-6 ruler-corner bg-[#0C1813] border-r border-b border-[#1A382A] z-30 flex items-center justify-center cursor-default select-none group/corner shadow-xs"
