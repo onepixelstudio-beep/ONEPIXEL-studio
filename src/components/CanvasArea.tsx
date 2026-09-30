@@ -29,6 +29,7 @@ import { LayerResolutionService } from '../utils/animation/LayerResolutionServic
 import { AssetPatternService, PatternContext } from '../utils/resources/AssetPatternService';
 import { PatternRenderer } from '../utils/resources/PatternRenderer';
 import { SelectionEngine, ISelectionEngine, SelectionOverlayRenderer, ISelectionMask, SelectionMode } from '../core/selection';
+import { useResponsive } from '../context/ResponsiveContext';
 
 
 interface CanvasAreaProps {
@@ -150,9 +151,9 @@ const CanvasArea = React.memo(function CanvasArea({
   tolerance = 0,
   fillShape = false,
   guides = [],
-  guidesVisible = true,
+  guidesVisible = false,
   guidesLocked = false,
-  rulersVisible = true,
+  rulersVisible = false,
   snappingEnabled = true,
   onAddGuide,
   onMoveGuide,
@@ -163,6 +164,7 @@ const CanvasArea = React.memo(function CanvasArea({
 }: CanvasAreaProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const responsive = useResponsive();
   const clipboardRef = useRef<{ pixels: string[]; mask: boolean[] } | null>(null);
   const strokeStartTimeRef = useRef<number | null>(null);
   const strokePointsRef = useRef<{ x: number; y: number }[]>([]);
@@ -3980,6 +3982,7 @@ const CanvasArea = React.memo(function CanvasArea({
             className="absolute top-0 left-0 w-6 h-6 ruler-corner bg-[#0C1813] border-r border-b border-[#1A382A] z-30 flex items-center justify-center cursor-default select-none group/corner shadow-xs"
             style={{ width: '24px', height: '24px' }}
             title={`${project.width} × ${project.height} px`}
+            data-interactive="true"
           >
             <span className="text-[8.5px] font-mono font-bold text-[#C8A96A] group-hover/corner:text-[#E5C378] transition-colors leading-none tracking-tighter">px</span>
           </div>
@@ -3988,6 +3991,7 @@ const CanvasArea = React.memo(function CanvasArea({
           <div 
             className="absolute top-0 left-6 right-0 h-6 z-30 overflow-hidden ruler-bar-horizontal border-b border-[#1A382A] bg-[#0C1813]"
             style={{ top: 0, left: '24px', height: '24px' }}
+            data-interactive="true"
           >
             <RulerHorizontal
               zoom={zoom}
@@ -4005,6 +4009,7 @@ const CanvasArea = React.memo(function CanvasArea({
           <div 
             className="absolute top-6 left-0 bottom-0 w-6 z-30 overflow-hidden ruler-bar-vertical border-r border-[#1A382A] bg-[#0C1813]"
             style={{ top: '24px', left: 0, width: '24px' }}
+            data-interactive="true"
           >
             <RulerVertical
               zoom={zoom}
@@ -4280,7 +4285,17 @@ const CanvasArea = React.memo(function CanvasArea({
       )}
 
       {/* Floating Canvas controls */}
-      <div className="absolute right-3 sm:right-4 bottom-28 md:bottom-4 flex flex-col gap-2 z-20" onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
+      <div 
+        className={`absolute right-3 sm:right-4 ${
+          responsive.isMobilePortrait 
+            ? 'bottom-28' 
+            : responsive.isMobileLandscape 
+            ? 'bottom-20' 
+            : 'bottom-4'
+        } flex flex-col gap-2 z-20`} 
+        onMouseDown={(e) => e.stopPropagation()} 
+        onTouchStart={(e) => e.stopPropagation()}
+      >
         <button
           onClick={handleZoomIn}
           onMouseDown={(e) => e.stopPropagation()}
@@ -4348,7 +4363,7 @@ const CanvasArea = React.memo(function CanvasArea({
       )}
 
       {/* Floating info panel */}
-      <div className="absolute left-2 sm:left-4 top-2 sm:top-4 bg-[#102419]/90 backdrop-blur-xs border border-[#102419] px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[9px] sm:text-[10px] text-slate-400 flex flex-wrap gap-2 sm:gap-4 pointer-events-none max-w-[calc(100vw-32px)]">
+      <div className={`absolute ${rulersVisible ? 'left-8 top-8 sm:left-9 sm:top-9' : 'left-2 sm:left-4 top-2 sm:top-4'} bg-[#102419]/90 backdrop-blur-xs border border-[#102419] px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[9px] sm:text-[10px] text-slate-400 flex flex-wrap gap-2 sm:gap-4 pointer-events-none max-w-[calc(100vw-32px)]`}>
         <span>{translate('canvas.projectLabel', language)} <b className="text-slate-200">{project.name}</b></span>
         <span>{translate('canvas.canvasLabel', language)} <b className="text-slate-200">{project.width}x{project.height}</b></span>
         <span>{translate('canvas.zoomLabel', language)} <b className="text-slate-200">{Math.round((zoom / 12) * 100)}%</b></span>

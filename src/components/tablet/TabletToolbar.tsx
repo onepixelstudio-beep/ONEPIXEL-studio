@@ -19,6 +19,7 @@ interface TabletToolbarProps {
   tiling: TilingSettings;
   onChangeTiling: (settings: TilingSettings) => void;
   language: LanguageCode;
+  isLeftHanded?: boolean;
 }
 
 const SHAPE_TOOLS: { id: ToolType; icon: any }[] = [
@@ -49,7 +50,8 @@ export const TabletToolbar: React.FC<TabletToolbarProps> = React.memo(function T
   onChangeSymmetry,
   tiling,
   onChangeTiling,
-  language
+  language,
+  isLeftHanded = false
 }) {
   const [activeGroup, setActiveGroup] = useState<'shapes' | 'fx' | 'select' | null>(null);
   const [lastSelectedShape, setLastSelectedShape] = useState<ToolType>('rectangle');
@@ -191,7 +193,7 @@ export const TabletToolbar: React.FC<TabletToolbarProps> = React.memo(function T
         {activeGroup === 'shapes' && (
           <div 
             ref={popoverRef}
-            className="fixed left-[66px] bg-[#102419] border border-[#C8A96A]/50 rounded-xl p-1.5 shadow-2xl z-50 flex flex-col gap-1 min-w-[170px] animate-in fade-in zoom-in-95 duration-100"
+            className={`${isLeftHanded ? 'fixed right-[66px]' : 'fixed left-[66px]'} bg-[#102419] border border-[#C8A96A]/50 rounded-xl p-1.5 shadow-2xl z-50 flex flex-col gap-1 min-w-[170px] animate-in fade-in zoom-in-95 duration-100`}
             style={{ top: 'auto' }}
           >
             <span className="text-[9px] uppercase font-bold text-[#C8A96A] px-2 py-0.5 tracking-wider">
@@ -249,7 +251,7 @@ export const TabletToolbar: React.FC<TabletToolbarProps> = React.memo(function T
         {activeGroup === 'fx' && (
           <div 
             ref={popoverRef}
-            className="fixed left-[66px] bg-[#102419] border border-[#C8A96A]/50 rounded-xl p-1.5 shadow-2xl z-50 flex flex-col gap-1 min-w-[170px] animate-in fade-in zoom-in-95 duration-100"
+            className={`${isLeftHanded ? 'fixed right-[66px]' : 'fixed left-[66px]'} bg-[#102419] border border-[#C8A96A]/50 rounded-xl p-1.5 shadow-2xl z-50 flex flex-col gap-1 min-w-[170px] animate-in fade-in zoom-in-95 duration-100`}
           >
             <span className="text-[9px] uppercase font-bold text-[#C8A96A] px-2 py-0.5 tracking-wider">
               {translate('toolbar.effects', language) || 'Efectos'}
@@ -320,7 +322,7 @@ export const TabletToolbar: React.FC<TabletToolbarProps> = React.memo(function T
         {activeGroup === 'select' && (
           <div 
             ref={popoverRef}
-            className="fixed left-[66px] bg-[#102419] border border-[#C8A96A]/50 rounded-xl p-1.5 shadow-2xl z-50 flex flex-col gap-1 min-w-[170px] animate-in fade-in zoom-in-95 duration-100"
+            className={`${isLeftHanded ? 'fixed right-[66px]' : 'fixed left-[66px]'} bg-[#102419] border border-[#C8A96A]/50 rounded-xl p-1.5 shadow-2xl z-50 flex flex-col gap-1 min-w-[170px] animate-in fade-in zoom-in-95 duration-100`}
           >
             <span className="text-[9px] uppercase font-bold text-[#C8A96A] px-2 py-0.5 tracking-wider">
               {translate('headerMenu.seleccion', language) || 'Selección'}

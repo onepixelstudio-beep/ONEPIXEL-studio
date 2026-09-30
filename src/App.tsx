@@ -441,7 +441,7 @@ export default function App() {
   // --- GUIDES & RULERS STATES & HANDLERS ---
   const [guidesVisible, setGuidesVisible] = useState<boolean>(() => {
     const saved = localStorage.getItem('onepixel_guides_visible');
-    return saved !== null ? saved === 'true' : true;
+    return saved !== null ? saved === 'true' : false;
   });
   const [guidesLocked, setGuidesLocked] = useState<boolean>(() => {
     const saved = localStorage.getItem('onepixel_guides_locked');
@@ -449,7 +449,7 @@ export default function App() {
   });
   const [rulersVisible, setRulersVisible] = useState<boolean>(() => {
     const saved = localStorage.getItem('onepixel_rulers_visible');
-    return saved !== null ? saved === 'true' : true;
+    return saved !== null ? saved === 'true' : false;
   });
   const [snappingEnabled, setSnappingEnabled] = useState<boolean>(() => {
     const saved = localStorage.getItem('onepixel_snapping_enabled');
@@ -4282,6 +4282,7 @@ export default function App() {
                   tiling={tiling}
                   onChangeTiling={setTiling}
                   language={preferences.language}
+                  isLeftHanded={preferences.leftHandedMode}
                 />
               ) : (
                 <>
@@ -4426,7 +4427,7 @@ export default function App() {
           )}
           
           {/* Main drawing canvas area (centered, most highlighted component) */}
-          <div className={`flex-1 min-h-0 w-full flex flex-col ${awe.isMobile ? (isMobileTimelineOpen ? 'pb-56' : 'pb-28') : ''}`}>
+          <div className={`flex-1 min-h-0 w-full flex flex-col ${awe.isMobile ? (awe.isMobileLandscape ? (isMobileTimelineOpen ? 'pb-40' : 'pb-24') : (isMobileTimelineOpen ? 'pb-56' : 'pb-28')) : ''}`}>
             <CanvasBoundary>
               {(!project || !project.frames || project.frames.length === 0 || tabs.length === 0) ? (
                 <EmptyWorkspace 
@@ -4552,6 +4553,7 @@ export default function App() {
               language={preferences.language}
               isOpen={tabletDockOpen}
               onToggleOpen={() => setTabletDockOpen(prev => !prev)}
+              isLeftHanded={preferences.leftHandedMode}
             />
           ) : (
             <div 

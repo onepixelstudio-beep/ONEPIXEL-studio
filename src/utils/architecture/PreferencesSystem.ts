@@ -107,7 +107,7 @@ export class PreferencesSystem {
       description: 'Muestra las reglas de píxeles en los bordes del lienzo.',
       category: 'canvas',
       type: 'boolean',
-      defaultValue: true
+      defaultValue: false
     });
     this.registerPreference({
       id: 'canvas.showGuides',
@@ -115,7 +115,7 @@ export class PreferencesSystem {
       description: 'Muestra las líneas guía sobre el lienzo.',
       category: 'canvas',
       type: 'boolean',
-      defaultValue: true
+      defaultValue: false
     });
     this.registerPreference({
       id: 'canvas.snappingEnabled',

@@ -34,136 +34,157 @@ export const RulerHorizontal: React.FC<RulerHorizontalProps> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    let animId: number;
 
-    // Get screen width of container
-    const rect = canvas.parentElement?.getBoundingClientRect();
-    const dWidth = rect?.width || canvas.clientWidth || 800;
-    
-    // Set internal resolution with High DPI support
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = dWidth * dpr;
-    canvas.height = height * dpr;
-    canvas.style.width = `${dWidth}px`;
-    canvas.style.height = `${height}px`;
+    const render = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+      // Get screen width of container
+      const rect = canvas.parentElement?.getBoundingClientRect();
+      const dWidth = rect?.width || canvas.clientWidth || 800;
+      
+      // Set internal resolution with High DPI support
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = dWidth * dpr;
+      canvas.height = height * dpr;
+      canvas.style.width = `${dWidth}px`;
+      canvas.style.height = `${height}px`;
 
-    ctx.scale(dpr, dpr);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
 
-    // Extract dynamic theme tokens
-    const computed = window.getComputedStyle(canvas);
-    const bg = '#0C1813'; // Clean, flat, dark obsidian background (Krita / Illustrator style)
-    const border = '#1A382A'; // Crisp 1px boundary
-    const text = '#8EAFA0'; // Ultra-legible muted mint font
-    const tickColor = '#608472';
-    const accentGold = '#C8A96A';
-    const indicatorColor = computed.getPropertyValue('--ruler-indicator').trim() || '#C8A96A';
+      ctx.scale(dpr, dpr);
 
-    // 1. Clean, flat, unified dark obsidian background across the entire ruler
-    ctx.fillStyle = bg;
-    ctx.fillRect(0, 0, dWidth, height);
+      // Extract dynamic theme tokens
+      const computed = window.getComputedStyle(canvas);
+      const bg = '#0C1813'; // Clean, flat, dark obsidian background (Krita / Illustrator style)
+      const border = '#1A382A'; // Crisp 1px boundary
+      const text = '#8EAFA0'; // Ultra-legible muted mint font
+      const tickColor = '#608472';
+      const accentGold = '#C8A96A';
+      const indicatorColor = computed.getPropertyValue('--ruler-indicator').trim() || '#C8A96A';
 
-    // 2. Crisp 1px bottom border
-    ctx.strokeStyle = border;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(0, height - 0.5);
-    ctx.lineTo(dWidth, height - 0.5);
-    ctx.stroke();
+      // 1. Clean, flat, unified dark obsidian background across the entire ruler
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, dWidth, height);
 
-    // 3. Calculate adaptive scale step
-    const step = calculateRulerStep(zoom);
-
-    // Visible range in canvas coordinates
-    const startCanvasX = Math.floor((-panX) / zoom);
-    const endCanvasX = Math.ceil((dWidth - panX) / zoom);
-    const alignedStart = Math.floor(startCanvasX / step) * step;
-
-    // Font setup for crisp numerical labels in a single line
-    ctx.font = '8.5px "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-
-    // 4. Draw ticks & labels
-    for (let cx = alignedStart; cx <= endCanvasX; cx += step) {
-      const sx = panX + cx * zoom;
-      if (sx < -30 || sx > dWidth + 30) continue;
-
-      const lineX = Math.round(sx) + 0.5;
-      const isOrigin = cx === 0;
-      const isBound = cx === width;
-
-      // Major tick (6px height)
-      const majorHeight = isOrigin || isBound ? 7 : 5.5;
-      ctx.strokeStyle = isOrigin || isBound ? accentGold : tickColor;
+      // 2. Crisp 1px bottom border
+      ctx.strokeStyle = border;
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(lineX, height - 1);
-      ctx.lineTo(lineX, height - 1 - majorHeight);
+      ctx.moveTo(0, height - 0.5);
+      ctx.lineTo(dWidth, height - 0.5);
       ctx.stroke();
 
-      // Number text in a single horizontal line
-      ctx.fillStyle = isOrigin || isBound ? '#E5C378' : text;
-      ctx.fillText(cx.toString(), Math.round(sx), 3);
+      // 3. Calculate adaptive scale step
+      const step = calculateRulerStep(zoom);
 
-      // Minor tick halfway between steps
-      const nextSx = panX + (cx + step / 2) * zoom;
-      if (nextSx >= 0 && nextSx <= dWidth) {
-        const minorLineX = Math.round(nextSx) + 0.5;
-        ctx.strokeStyle = '#325442';
+      // Visible range in canvas coordinates
+      const startCanvasX = Math.floor((-panX) / zoom);
+      const endCanvasX = Math.ceil((dWidth - panX) / zoom);
+      const alignedStart = Math.floor(startCanvasX / step) * step;
+
+      // Font setup for crisp numerical labels in a single line
+      ctx.font = '8.5px "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+
+      // 4. Draw ticks & labels
+      for (let cx = alignedStart; cx <= endCanvasX; cx += step) {
+        const sx = panX + cx * zoom;
+        if (sx < -30 || sx > dWidth + 30) continue;
+
+        const lineX = Math.round(sx) + 0.5;
+        const isOrigin = cx === 0;
+        const isBound = cx === width;
+
+        // Major tick (6px height)
+        const majorHeight = isOrigin || isBound ? 7 : 5.5;
+        ctx.strokeStyle = isOrigin || isBound ? accentGold : tickColor;
+        ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(minorLineX, height - 1);
-        ctx.lineTo(minorLineX, height - 1 - 3.5);
+        ctx.moveTo(lineX, height - 1);
+        ctx.lineTo(lineX, height - 1 - majorHeight);
         ctx.stroke();
-      }
 
-      // Micro subdivision ticks if zoom spacing allows
-      const pixelSpacing = step * zoom;
-      if (pixelSpacing >= 60) {
-        const subStep = step / 5;
-        for (let s = 1; s <= 4; s++) {
-          if (s === 2 || s === 3) continue;
-          const subSx = panX + (cx + s * subStep) * zoom;
-          if (subSx >= 0 && subSx <= dWidth) {
-            const subLineX = Math.round(subSx) + 0.5;
-            ctx.strokeStyle = '#1D3B2C';
-            ctx.beginPath();
-            ctx.moveTo(subLineX, height - 1);
-            ctx.lineTo(subLineX, height - 1 - 2);
-            ctx.stroke();
+        // Number text in a single horizontal line
+        ctx.fillStyle = isOrigin || isBound ? '#E5C378' : text;
+        ctx.fillText(cx.toString(), Math.round(sx), 3);
+
+        // Minor tick halfway between steps
+        const nextSx = panX + (cx + step / 2) * zoom;
+        if (nextSx >= 0 && nextSx <= dWidth) {
+          const minorLineX = Math.round(nextSx) + 0.5;
+          ctx.strokeStyle = '#325442';
+          ctx.beginPath();
+          ctx.moveTo(minorLineX, height - 1);
+          ctx.lineTo(minorLineX, height - 1 - 3.5);
+          ctx.stroke();
+        }
+
+        // Micro subdivision ticks if zoom spacing allows
+        const pixelSpacing = step * zoom;
+        if (pixelSpacing >= 60) {
+          const subStep = step / 5;
+          for (let s = 1; s <= 4; s++) {
+            if (s === 2 || s === 3) continue;
+            const subSx = panX + (cx + s * subStep) * zoom;
+            if (subSx >= 0 && subSx <= dWidth) {
+              const subLineX = Math.round(subSx) + 0.5;
+              ctx.strokeStyle = '#1D3B2C';
+              ctx.beginPath();
+              ctx.moveTo(subLineX, height - 1);
+              ctx.lineTo(subLineX, height - 1 - 2);
+              ctx.stroke();
+            }
           }
         }
       }
-    }
 
-    // 5. Canvas fallback cursor indicator
-    if (cursorX !== null) {
-      const sx = panX + cursorX * zoom;
-      if (sx >= 0 && sx <= dWidth) {
-        const curX = Math.round(sx) + 0.5;
-        ctx.strokeStyle = indicatorColor;
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(curX, 0);
-        ctx.lineTo(curX, height - 1);
-        ctx.stroke();
+      // 5. Canvas fallback cursor indicator
+      if (cursorX !== null) {
+        const sx = panX + cursorX * zoom;
+        if (sx >= 0 && sx <= dWidth) {
+          const curX = Math.round(sx) + 0.5;
+          ctx.strokeStyle = indicatorColor;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(curX, 0);
+          ctx.lineTo(curX, height - 1);
+          ctx.stroke();
 
-        ctx.fillStyle = indicatorColor;
-        ctx.beginPath();
-        ctx.moveTo(curX - 2.5, height - 1);
-        ctx.lineTo(curX + 2.5, height - 1);
-        ctx.lineTo(curX, height - 4.5);
-        ctx.closePath();
-        ctx.fill();
+          ctx.fillStyle = indicatorColor;
+          ctx.beginPath();
+          ctx.moveTo(curX - 2.5, height - 1);
+          ctx.lineTo(curX + 2.5, height - 1);
+          ctx.lineTo(curX, height - 4.5);
+          ctx.closePath();
+          ctx.fill();
+        }
       }
-    }
+    };
+
+    render();
+
+    const handleResize = () => {
+      cancelAnimationFrame(animId);
+      animId = requestAnimationFrame(render);
+    };
+
+    window.addEventListener('resize', handleResize, { passive: true });
+    window.addEventListener('orientationchange', handleResize, { passive: true });
+
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+    };
   }, [zoom, panX, width, cursorX, height, rulerBackground, rulerTextColor, rulerBorder, theme, themeColor]);
 
   // Handle clicking or touching the ruler to add a guide (Photoshop / Illustrator style drag-to-create)
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    e.stopPropagation();
     if (!canvasRef.current || !onStartDragNewGuide) return;
     onStartDragNewGuide(e);
   };

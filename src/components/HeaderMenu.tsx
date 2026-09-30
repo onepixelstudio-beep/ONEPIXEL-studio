@@ -1960,7 +1960,7 @@ const HeaderMenu = React.memo(function HeaderMenu({
       {/* --- NUEVO PROYECTO MODAL --- */}
       {newModalOpen && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="bg-[#102419] border border-[#102419] rounded-2xl p-6 max-w-sm w-full text-slate-200 shadow-2xl relative">
+          <div className="bg-[#102419] border border-[#102419] rounded-2xl p-6 max-w-sm w-full text-slate-200 shadow-2xl relative max-h-[90dvh] overflow-y-auto">
             <div className="flex items-center gap-2 mb-4 border-b border-[#102419] pb-2">
               <FilePlus className="w-5 h-5 text-white" />
               <h3 className="text-sm font-bold text-white">{translate('headerMenu.newProjectModalTitle', language as any)}</h3>
@@ -2086,7 +2086,7 @@ const HeaderMenu = React.memo(function HeaderMenu({
       {/* --- REDIMENSIONAR LIENZO MODAL --- */}
       {resizeModalOpen && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="bg-[#102419] border border-[#102419] rounded-2xl p-6 max-w-sm w-full text-slate-200 shadow-2xl relative">
+          <div className="bg-[#102419] border border-[#102419] rounded-2xl p-6 max-w-sm w-full text-slate-200 shadow-2xl relative max-h-[90dvh] overflow-y-auto">
             <div className="flex items-center gap-2 mb-4 border-b border-[#102419] pb-2">
               <Layout className="w-5 h-5 text-white" />
               <h3 className="text-sm font-bold text-white">{translate('headerMenu.resizeCanvasModalTitle', language as any)}</h3>
@@ -2168,7 +2168,7 @@ const HeaderMenu = React.memo(function HeaderMenu({
       {/* --- ESCALAR SPRITE MODAL --- */}
       {scaleModalOpen && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="bg-[#102419] border border-[#102419] rounded-2xl p-6 max-w-sm w-full text-slate-200 shadow-2xl relative">
+          <div className="bg-[#102419] border border-[#102419] rounded-2xl p-6 max-w-sm w-full text-slate-200 shadow-2xl relative max-h-[90dvh] overflow-y-auto">
             <div className="flex items-center gap-2 mb-4 border-b border-[#102419] pb-2">
               <Scaling className="w-5 h-5 text-[#C8A96A]" />
               <h3 className="text-sm font-bold text-white">{translate('headerMenu.scaleSpriteModalTitle', language as any)}</h3>
@@ -2250,7 +2250,7 @@ const HeaderMenu = React.memo(function HeaderMenu({
       {/* --- GUARDAR PATRÓN ORIGINAL MODAL --- */}
       {savePatternModalOpen && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="bg-[#102419] border border-[#102419] rounded-2xl p-6 max-w-sm w-full text-slate-200 shadow-2xl relative">
+          <div className="bg-[#102419] border border-[#102419] rounded-2xl p-6 max-w-sm w-full text-slate-200 shadow-2xl relative max-h-[90dvh] overflow-y-auto">
             <div className="flex items-center gap-2 mb-4 border-b border-[#102419] pb-2">
               <Save className="w-5 h-5 text-white" />
               <h3 className="text-sm font-bold text-white">{translate('headerMenu.saveOriginalPatternModalTitle', language as any)}</h3>

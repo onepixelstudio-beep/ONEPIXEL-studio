@@ -57,6 +57,7 @@ interface TabletRightDockProps {
   language: LanguageCode;
   isOpen: boolean;
   onToggleOpen: () => void;
+  isLeftHanded?: boolean;
 }
 
 export const TabletRightDock: React.FC<TabletRightDockProps> = React.memo(function TabletRightDock({
@@ -105,7 +106,8 @@ export const TabletRightDock: React.FC<TabletRightDockProps> = React.memo(functi
   onTogglePlay,
   language,
   isOpen,
-  onToggleOpen
+  onToggleOpen,
+  isLeftHanded = false
 }) {
   const [activeTab, setActiveTab] = useState<'color' | 'layers' | 'preview'>('color');
   const layersCount = project?.layers?.length || 1;
@@ -247,11 +249,19 @@ export const TabletRightDock: React.FC<TabletRightDockProps> = React.memo(functi
       {/* Toggle Handle Button to open/collapse dock */}
       <button
         onClick={onToggleOpen}
-        className="absolute top-1/2 -translate-y-1/2 -left-5 w-5 h-16 bg-[#102419] hover:bg-[#1b3d2b] border-y border-l border-[#1b3d2b] text-[#C8A96A] hover:text-white rounded-l-xl flex items-center justify-center cursor-pointer z-40 transition-all duration-150 shadow-2xl touch-manipulation active:scale-95"
+        className={`absolute top-1/2 -translate-y-1/2 ${
+          isLeftHanded 
+            ? '-right-5 border-y border-r rounded-r-xl' 
+            : '-left-5 border-y border-l rounded-l-xl'
+        } w-5 h-16 bg-[#102419] hover:bg-[#1b3d2b] border-[#1b3d2b] text-[#C8A96A] hover:text-white flex items-center justify-center cursor-pointer z-40 transition-all duration-150 shadow-2xl touch-manipulation active:scale-95`}
         title={isOpen ? (translate('headerMenu.hidePanel', language as any) || "Ocultar panel lateral") : (translate('headerMenu.showPanel', language as any) || "Mostrar panel lateral")}
         aria-label={isOpen ? "Ocultar panel lateral" : "Mostrar panel lateral"}
       >
-        {isOpen ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+        {isLeftHanded ? (
+          isOpen ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />
+        ) : (
+          isOpen ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />
+        )}
       </button>
     </div>
   );

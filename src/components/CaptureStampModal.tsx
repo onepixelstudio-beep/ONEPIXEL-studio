@@ -49,7 +49,7 @@ export default function CaptureStampModal({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 15 }}
           transition={{ type: 'spring', duration: 0.3 }}
-          className="w-full max-w-md overflow-hidden bg-[#102419] border border-[#102419] rounded-2xl shadow-2xl text-slate-200"
+          className="w-full max-w-md overflow-hidden bg-[#102419] border border-[#102419] rounded-2xl shadow-2xl text-slate-200 max-h-[90dvh] overflow-y-auto"
         >
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-[#102419]/60 bg-[#102419]">

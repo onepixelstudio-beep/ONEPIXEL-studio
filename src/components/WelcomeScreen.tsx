@@ -1931,7 +1931,7 @@ export default function WelcomeScreen({
       {/* --- NEW PROJECT CREATOR MODAL --- */}
       {isNewProjectModalOpen && (
         <div className="fixed inset-0 bg-black/60 z-[120] flex items-center justify-center p-4 backdrop-blur-xs font-sans">
-          <div className="bg-[#102419] border border-[#0F3D34] p-6 rounded-2xl w-full max-w-md space-y-5 shadow-2xl">
+          <div className="bg-[#102419] border border-[#0F3D34] p-6 rounded-2xl w-full max-w-md space-y-5 shadow-2xl max-h-[90dvh] overflow-y-auto">
             <div className="flex justify-between items-center border-b border-[#0F3D34] pb-2">
               <h4 className="font-extrabold text-xs text-[#C8A96A] uppercase tracking-wider">{translate('canvas.newProject', language) || 'Nuevo Lienzo'}</h4>
               <button onClick={() => setIsNewProjectModalOpen(false)} className="text-slate-400 hover:text-white">
