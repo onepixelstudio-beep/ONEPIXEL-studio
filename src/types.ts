@@ -124,6 +124,7 @@ export interface PixelProject {
   hasBeenSavedCloud?: boolean;
   hasDownloadedInitialFile?: boolean;
   fileHandle?: any;
+  nativeFileUri?: string;
   fileFormat?: string;
   isModified?: boolean;
   schemaVersion?: string;
@@ -243,6 +244,7 @@ export interface OpenProjectTab {
   symmetry: SymmetrySettings;
   tiling: TilingSettings;
   fileHandle?: any;
+  nativeFileUri?: string;
   fileFormat?: string;
   hasDownloadedInitialFile?: boolean;
 }

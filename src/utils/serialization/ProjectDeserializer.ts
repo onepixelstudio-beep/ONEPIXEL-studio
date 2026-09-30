@@ -182,6 +182,7 @@ export class ProjectDeserializer {
       hasDownloadedInitialFile: !!parsed.hasDownloadedInitialFile,
       fileFormat: parsed.fileFormat || 'onepixel',
       fileHandle: (typeof data === 'object' && data !== null) ? (data as any).fileHandle : undefined,
+      nativeFileUri: typeof parsed.nativeFileUri === 'string' ? parsed.nativeFileUri : undefined,
       isModified: false // Resets on load
     };
 

@@ -63,6 +63,7 @@ export class ProjectSerializer {
       hasBeenSavedLocally: project.hasBeenSavedLocally,
       hasBeenSavedCloud: project.hasBeenSavedCloud,
       hasDownloadedInitialFile: project.hasDownloadedInitialFile,
+      nativeFileUri: project.nativeFileUri,
       fileFormat: project.fileFormat || 'onepixel',
       ...options?.extra,
     };

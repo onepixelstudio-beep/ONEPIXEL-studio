@@ -1,6 +1,7 @@
 import { EncodedFile } from './ExportTypes';
 import { SaveError, CancelError } from './ExportErrors';
 import { isFileSystemAccessSupported, logFileTest } from '../saveManager';
+import { NativeFileBridge } from '../native/NativeFileBridge';
 
 /**
  * Service responsible for managing local persistence and browser downloads.
@@ -14,6 +15,14 @@ export class FileSaveService {
    * or returns null if the environment restricts the API (e.g. iframe sandbox).
    */
   public static async promptSaveHandle(filename: string, extension: string, mimeType?: string): Promise<any | null> {
+    if (NativeFileBridge.isAvailable()) {
+      const uri = await NativeFileBridge.promptSavePath({ filename, extension });
+      if (!uri) {
+        throw new CancelError('Exportación cancelada por el usuario.');
+      }
+      return { nativeUri: uri, isNative: true };
+    }
+
     if (!isFileSystemAccessSupported()) {
       return null;
     }
@@ -213,7 +222,45 @@ export class FileSaveService {
       throw new SaveError(`Error resolviendo los datos a Blob para guardar: ${err.message}`);
     }
 
-    // 2. Use preSelectedHandle or attempt File System Access API
+    // 2. If Native File Bridge is available (Tauri Android / Desktop):
+    if (NativeFileBridge.isAvailable()) {
+      const existingUri = preSelectedHandle?.nativeUri || (typeof preSelectedHandle === 'string' ? preSelectedHandle : undefined);
+
+      let uint8Data: Uint8Array;
+      if (data instanceof Uint8Array) {
+        uint8Data = data;
+      } else if (data instanceof ArrayBuffer) {
+        uint8Data = new Uint8Array(data);
+      } else if (typeof data === 'string') {
+        if (data.startsWith('data:')) {
+          uint8Data = FileSaveService.dataUrlToUint8Array(data);
+        } else {
+          uint8Data = new TextEncoder().encode(data);
+        }
+      } else if (data instanceof Blob) {
+        uint8Data = new Uint8Array(await data.arrayBuffer());
+      } else {
+        uint8Data = new Uint8Array(data as any);
+      }
+
+      const saveRes = await NativeFileBridge.saveFile({
+        filename,
+        extension,
+        mimeType: mimeType || 'application/octet-stream',
+        data: uint8Data,
+        existingUri
+      });
+
+      if (saveRes.cancelled) {
+        throw new CancelError('Guardado cancelado por el usuario.');
+      }
+      if (!saveRes.success) {
+        throw new SaveError(saveRes.error?.message || 'Error guardando archivo mediante el puente nativo.');
+      }
+      return;
+    }
+
+    // 3. Use preSelectedHandle or attempt File System Access API
     let handle = preSelectedHandle;
     if (!handle && isFileSystemAccessSupported()) {
       try {
@@ -277,6 +324,25 @@ export class FileSaveService {
       } catch (e) {
         // Safe fallback
       }
+    }
+  }
+
+  /**
+   * Helper utility to safely convert a base64 DataURL string into a raw Uint8Array.
+   */
+  public static dataUrlToUint8Array(dataUrl: string): Uint8Array {
+    try {
+      const parts = dataUrl.split(',');
+      const base64 = parts[1] || parts[0];
+      const binaryStr = atob(base64);
+      const len = binaryStr.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryStr.charCodeAt(i);
+      }
+      return bytes;
+    } catch (err: any) {
+      throw new SaveError(`DataURL inválido: ${err.message}`);
     }
   }
 

@@ -1,6 +1,7 @@
 import { PixelProject } from '../types';
 import { saveDebug } from './saveDebug';
 import { LocalPersistence } from './persistence/LocalPersistence';
+import { NativeFileBridge } from './native/NativeFileBridge';
 
 /**
  * Determines if the current execution context is the top-level window.
@@ -132,9 +133,73 @@ function logFileOperation(stage: string, data: any) {
  */
 export async function saveProject(
   projectPayload: PixelProject
-): Promise<{ success: boolean; savedViaHandle: boolean; fileHandle: any | null; actualName?: string; hasDownloadedInitialFile?: boolean; cancelled?: boolean; error?: any }> {
+): Promise<{ success: boolean; savedViaHandle: boolean; fileHandle: any | null; actualName?: string; hasDownloadedInitialFile?: boolean; cancelled?: boolean; error?: any; nativeFileUri?: string }> {
   const fileFormat = (projectPayload.fileFormat || 'onepixel').toLowerCase().replace(/^\./, '');
   const fileName = projectPayload.name || 'Sin_Título';
+
+  // 0. If Native File Bridge is available (Tauri Android / Desktop container):
+  if (NativeFileBridge.isAvailable()) {
+    logFileOperation('NATIVE_BRIDGE_SAVE_ENTER', {
+      hasNativeUri: !!projectPayload.nativeFileUri,
+      nativeFileUri: projectPayload.nativeFileUri || null,
+      projectName: fileName,
+      fileFormat
+    });
+
+    if (projectPayload.nativeFileUri) {
+      try {
+        const cleanPayload = {
+          ...projectPayload,
+          fileHandle: undefined,
+          lastSaved: Date.now(),
+          hasBeenSavedLocally: true,
+          hasDownloadedInitialFile: true
+        };
+        const serialized = JSON.stringify(cleanPayload, null, 2);
+        const uint8Data = new TextEncoder().encode(serialized);
+
+        const nativeRes = await NativeFileBridge.saveFile({
+          filename: fileName,
+          extension: fileFormat,
+          mimeType: fileFormat === 'json' ? 'application/json' : 'application/x-onepixel',
+          data: uint8Data,
+          existingUri: projectPayload.nativeFileUri
+        });
+
+        if (nativeRes.success) {
+          LocalPersistence.saveProject(cleanPayload);
+          LocalPersistence.saveActiveSession(cleanPayload);
+
+          logFileOperation('NATIVE_WRITE_SUCCESS', {
+            uri: nativeRes.uri || projectPayload.nativeFileUri,
+            action: 'Sobrescritura nativa completada en disco'
+          });
+
+          return {
+            success: true,
+            savedViaHandle: true,
+            fileHandle: null,
+            nativeFileUri: nativeRes.uri || projectPayload.nativeFileUri,
+            actualName: fileName,
+            hasDownloadedInitialFile: true
+          };
+        } else if (nativeRes.cancelled) {
+          return {
+            success: false,
+            savedViaHandle: false,
+            fileHandle: null,
+            cancelled: true
+          };
+        } else {
+          console.warn('[saveManager] Sobrescritura en existingUri falló, redirigiendo a saveProjectAs:', nativeRes.error);
+        }
+      } catch (err: any) {
+        console.warn('[saveManager] Error en sobrescritura nativa, redirigiendo a saveProjectAs:', err);
+      }
+    }
+
+    return await saveProjectAs(projectPayload, fileName, fileFormat, 'Guardar');
+  }
 
   logFileOperation('SAVE_PROJECT_ENTER', {
     hasExistingHandle: !!projectPayload.fileHandle,
@@ -307,12 +372,93 @@ export async function saveProjectAs(
   chosenName: string,
   chosenFormat: string = 'onepixel',
   operationName: string = 'Guardar como'
-): Promise<{ success: boolean; savedViaHandle: boolean; fileHandle: any | null; actualName?: string; hasDownloadedInitialFile?: boolean; error?: any; cancelled?: boolean }> {
+): Promise<{ success: boolean; savedViaHandle: boolean; fileHandle: any | null; actualName?: string; hasDownloadedInitialFile?: boolean; error?: any; cancelled?: boolean; nativeFileUri?: string }> {
   
   const cleanBaseName = (chosenName || 'Sin_Título').trim();
   const format = (chosenFormat || 'onepixel').toLowerCase().replace(/^\./, '');
   const sanitizedBaseName = cleanBaseName.replace(/[/\\?%*:|"<>]/g, '_');
   const suggestedFilename = `${sanitizedBaseName}.${format}`;
+
+  // 0. If Native File Bridge is available (Tauri Android / Desktop container):
+  if (NativeFileBridge.isAvailable()) {
+    try {
+      const cleanPayload = {
+        ...projectPayload,
+        name: cleanBaseName,
+        fileFormat: format,
+        lastSaved: Date.now(),
+        hasBeenSavedLocally: true,
+        hasDownloadedInitialFile: true,
+        fileHandle: undefined
+      };
+      const serialized = JSON.stringify(cleanPayload, null, 2);
+      const uint8Data = new TextEncoder().encode(serialized);
+
+      const nativeRes = await NativeFileBridge.saveFile({
+        filename: sanitizedBaseName,
+        extension: format,
+        mimeType: format === 'json' ? 'application/json' : 'application/x-onepixel',
+        data: uint8Data,
+        existingUri: null // Always prompt dialog in saveProjectAs
+      });
+
+      if (nativeRes.cancelled) {
+        logFileOperation('NATIVE_SAVE_CANCELLED', {
+          action: 'Usuario canceló en el selector nativo'
+        });
+        return {
+          success: false,
+          savedViaHandle: false,
+          fileHandle: null,
+          cancelled: true
+        };
+      }
+
+      if (!nativeRes.success || !nativeRes.uri) {
+        return {
+          success: false,
+          savedViaHandle: false,
+          fileHandle: null,
+          error: nativeRes.error || new Error('Fallo al guardar archivo nativo')
+        };
+      }
+
+      const pathSeparator = nativeRes.uri.includes('/') ? '/' : '\\';
+      const filePart = nativeRes.uri.split(pathSeparator).pop() || suggestedFilename;
+      const derivedName = filePart.replace(/\.[^/.]+$/, '') || cleanBaseName;
+
+      const updatedPayload = {
+        ...cleanPayload,
+        name: derivedName,
+        nativeFileUri: nativeRes.uri
+      };
+
+      LocalPersistence.saveProject(updatedPayload);
+      LocalPersistence.saveActiveSession(updatedPayload);
+
+      logFileOperation('NATIVE_SAVE_SUCCESS', {
+        uri: nativeRes.uri,
+        derivedName
+      });
+
+      return {
+        success: true,
+        savedViaHandle: true,
+        fileHandle: null,
+        nativeFileUri: nativeRes.uri,
+        actualName: derivedName,
+        hasDownloadedInitialFile: true
+      };
+    } catch (err: any) {
+      logFileOperation('NATIVE_SAVE_ERROR', { error: err });
+      return {
+        success: false,
+        savedViaHandle: false,
+        fileHandle: null,
+        error: err
+      };
+    }
+  }
 
   const hasShowSave = isFileSystemAccessSupported();
 

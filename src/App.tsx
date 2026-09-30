@@ -2643,11 +2643,13 @@ export default function App() {
     try {
       // Find the active handle from project or active tab
       const currentHandle = project.fileHandle || tabs.find(t => t.id === activeTabId)?.fileHandle;
+      const currentNativeUri = project.nativeFileUri || tabs.find(t => t.id === activeTabId)?.project?.nativeFileUri || tabs.find(t => t.id === activeTabId)?.nativeFileUri;
       const currentHasDownloaded = project.hasDownloadedInitialFile || tabs.find(t => t.id === activeTabId)?.hasDownloadedInitialFile || false;
 
       saveDebug('handleSaveActiveProject', '[DEBUG_SAVE] BEFORE_SERIALIZE', {
         projectId: project.id,
         currentHandleName: currentHandle?.name || null,
+        currentNativeUri: currentNativeUri || null,
         hasDownloadedInitialFile: currentHasDownloaded
       });
 
@@ -2662,6 +2664,7 @@ export default function App() {
       const updatedProject: PixelProject = {
         ...serialized,
         fileHandle: currentHandle,
+        nativeFileUri: currentNativeUri,
         hasDownloadedInitialFile: currentHasDownloaded
       };
 
@@ -2670,6 +2673,8 @@ export default function App() {
         projectName: updatedProject.name,
         hasFileHandle: !!updatedProject.fileHandle,
         fileHandleName: updatedProject.fileHandle?.name || null,
+        hasNativeFileUri: !!updatedProject.nativeFileUri,
+        nativeFileUri: updatedProject.nativeFileUri || null,
         hasDownloadedInitialFile: !!updatedProject.hasDownloadedInitialFile
       });
 
@@ -2703,6 +2708,7 @@ export default function App() {
           ...updatedProject,
           name: result.actualName || updatedProject.name,
           fileHandle: result.savedViaHandle ? (result.fileHandle || currentHandle) : null,
+          nativeFileUri: result.nativeFileUri || updatedProject.nativeFileUri,
           hasDownloadedInitialFile: result.hasDownloadedInitialFile !== undefined ? result.hasDownloadedInitialFile : true,
           hasBeenSavedLocally: true,
           isModified: false
@@ -2713,6 +2719,8 @@ export default function App() {
           projectName: projectWithHandle.name,
           hasFileHandle: !!projectWithHandle.fileHandle,
           fileHandleName: projectWithHandle.fileHandle?.name || null,
+          hasNativeFileUri: !!projectWithHandle.nativeFileUri,
+          nativeFileUri: projectWithHandle.nativeFileUri || null,
           hasDownloadedInitialFile: projectWithHandle.hasDownloadedInitialFile
         });
 
@@ -2722,6 +2730,7 @@ export default function App() {
           ...t, 
           project: projectWithHandle, 
           fileHandle: projectWithHandle.fileHandle,
+          nativeFileUri: projectWithHandle.nativeFileUri,
           hasDownloadedInitialFile: projectWithHandle.hasDownloadedInitialFile
         } : t));
         syncProjectWithPersistenceAndRecents(projectWithHandle);
@@ -2786,7 +2795,8 @@ export default function App() {
       const updatedProject: PixelProject = {
         ...serialized,
         name: chosenName.trim() || project.name,
-        fileHandle: undefined
+        fileHandle: undefined,
+        nativeFileUri: undefined
       };
 
       saveDebug('handleSaveAsProject', '[DEBUG_SAVE] CALLING_SAVE_AS', {
@@ -2817,6 +2827,7 @@ export default function App() {
           ...updatedProject,
           name: result.actualName || updatedProject.name,
           fileHandle: result.savedViaHandle ? result.fileHandle : null,
+          nativeFileUri: result.nativeFileUri,
           hasDownloadedInitialFile: true,
           hasBeenSavedLocally: true,
           isModified: false
@@ -2826,7 +2837,9 @@ export default function App() {
           projectId: projectWithHandle.id,
           projectName: projectWithHandle.name,
           hasFileHandle: !!projectWithHandle.fileHandle,
-          fileHandleName: projectWithHandle.fileHandle?.name || null
+          fileHandleName: projectWithHandle.fileHandle?.name || null,
+          hasNativeFileUri: !!projectWithHandle.nativeFileUri,
+          nativeFileUri: projectWithHandle.nativeFileUri || null
         });
 
         lastSavedContentRefs.current[projectWithHandle.id] = getProjectContentString(projectWithHandle);
@@ -2835,6 +2848,7 @@ export default function App() {
           ...t, 
           project: projectWithHandle, 
           fileHandle: projectWithHandle.fileHandle,
+          nativeFileUri: projectWithHandle.nativeFileUri,
           hasDownloadedInitialFile: true
         } : t));
         syncProjectWithPersistenceAndRecents(projectWithHandle);
