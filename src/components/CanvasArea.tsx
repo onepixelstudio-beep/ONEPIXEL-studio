@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react'
 import { ZoomIn, ZoomOut, Maximize2, Move, RefreshCw, Copy, Check, X, FlipHorizontal, FlipVertical, RotateCw, Grid, Sliders, Repeat, Settings2, Eye, EyeOff, Lock, Unlock, RotateCcw, Trash2, Image as ImageIcon } from 'lucide-react';
 import { 
   PixelProject, ToolType, SymmetrySettings, 
-  TilingSettings, SelectionState, TransformState, Guide, OnionSkinSettings
+  TilingSettings, SelectionState, TransformState, Guide, OnionSkinSettings, UserPreferences
 } from '../types';
 import { MoveManager } from '../utils/MoveManager';
 import { animationEventBus } from '../utils/animation/EventBus';
@@ -100,6 +100,10 @@ interface CanvasAreaProps {
   symmetryAxisColor?: string;
   theme?: string;
   themeColor?: string;
+  preferences?: UserPreferences;
+  palmRejectionMode?: 'finger_and_pen' | 'pen_only' | 'pen_priority';
+  touchOffsetY?: number;
+  touchOffsetX?: number;
 }
 
 const CanvasArea = React.memo(function CanvasArea({
@@ -113,6 +117,10 @@ const CanvasArea = React.memo(function CanvasArea({
   brushSize,
   symmetry,
   symmetryAxisColor = '#C8A96A',
+  preferences: propPreferences,
+  palmRejectionMode: propPalmRejectionMode,
+  touchOffsetY: propTouchOffsetY,
+  touchOffsetX: propTouchOffsetX,
   tiling,
   onionSkinEnabled,
   onionSkinOpacity = 30,
@@ -189,13 +197,50 @@ const CanvasArea = React.memo(function CanvasArea({
     brushOffsetsCacheRef.current = calculateBrushOffsets(brushSize, activeBrush);
   }, [brushSize, activeBrush]);
 
-  const getFractionalCanvasCoords = (clientX: number, clientY: number): { x: number; y: number } | null => {
+  const palmRejectionMode = propPalmRejectionMode || propPreferences?.palmRejectionMode || 'pen_priority';
+  const touchOffsetX = propTouchOffsetX ?? propPreferences?.touchOffsetX ?? 0;
+  const touchOffsetY = propTouchOffsetY ?? propPreferences?.touchOffsetY ?? 0;
+  const touchOffsetRef = useRef({ x: touchOffsetX, y: touchOffsetY });
+  useEffect(() => {
+    touchOffsetRef.current = { x: touchOffsetX, y: touchOffsetY };
+  }, [touchOffsetX, touchOffsetY]);
+
+  // --- UNIFIED POINTER ENGINE REFS ---
+  const activePointersRef = useRef<Map<number, {
+    clientX: number;
+    clientY: number;
+    pointerType: string;
+    pressure: number;
+    tiltX: number;
+    tiltY: number;
+  }>>(new Map());
+  const isMultiTouchNavigatingRef = useRef(false);
+  const secondaryNavPointerIdRef = useRef<number | null>(null);
+  const secondaryNavStartRef = useRef<{ clientX: number; clientY: number; initialPanX: number; initialPanY: number; initialZoom: number } | null>(null);
+  const isStylusActiveRef = useRef(false);
+  const activeDrawingPointerIdRef = useRef<number | null>(null);
+  const lastActiveStylusTimeRef = useRef<number>(0);
+  const capturedPointerIdRef = useRef<number | null>(null);
+  const currentPointerInfoRef = useRef<{
+    id: number;
+    type: string;
+    pressure: number;
+    tiltX: number;
+    tiltY: number;
+    clientX: number;
+    clientY: number;
+    buttons: number;
+  } | null>(null);
+
+  const getFractionalCanvasCoords = (clientX: number, clientY: number, pointerType?: string): { x: number; y: number } | null => {
     if (!canvasRef.current) return null;
     const rect = canvasRef.current.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return null;
     if (!Number.isFinite(zoom) || zoom <= 0) return null;
-    const x = (clientX - rect.left - panX) / zoom;
-    const y = (clientY - rect.top - panY) / zoom;
+    const ox = pointerType === 'touch' ? touchOffsetRef.current.x : 0;
+    const oy = pointerType === 'touch' ? touchOffsetRef.current.y : 0;
+    const x = (clientX + ox - rect.left - panX) / zoom;
+    const y = (clientY + oy - rect.top - panY) / zoom;
     return { x, y };
   };
 
@@ -349,9 +394,10 @@ const CanvasArea = React.memo(function CanvasArea({
   const getSnappedPixelCoords = (
     clientX: number,
     clientY: number,
-    e: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent
+    e: React.MouseEvent | React.TouchEvent | React.PointerEvent | MouseEvent | TouchEvent | PointerEvent,
+    pointerType?: string
   ): { x: number; y: number } | null => {
-    const fractional = getFractionalCanvasCoords(clientX, clientY);
+    const fractional = getFractionalCanvasCoords(clientX, clientY, pointerType);
     if (!fractional) return null;
 
     if (!snappingEnabled || e.altKey) {
@@ -433,6 +479,7 @@ const CanvasArea = React.memo(function CanvasArea({
   const [drawStart, setDrawStart] = useState<{ x: number; y: number } | null>(null);
   const currentCoordRef = useRef<{ x: number; y: number } | null>(null);
   const cloneStartOffsetRef = useRef<{ dx: number; dy: number } | null>(null);
+  const isBendingCurveRef = useRef(false);
   const [coordDisplay, setCoordDisplay] = useState<{ x: number; y: number } | null>(null);
   const coordDisplayRafRef = useRef<number | null>(null);
   const pendingCoordDisplayRef = useRef<{ x: number; y: number } | null>(null);
@@ -647,6 +694,7 @@ const CanvasArea = React.memo(function CanvasArea({
 
   // Advanced tool states
   const [curveState, setCurveState] = useState<{ step: 'bend'; start: { x: number; y: number }; end: { x: number; y: number } } | null>(null);
+  const curveStateRef = useRef<{ step: 'bend'; start: { x: number; y: number }; end: { x: number; y: number } } | null>(null);
 
   // Selection Duplication state (allows dragging the duplicated selection and clicking Accept)
   const [duplicateActive, setDuplicateActive] = useState<boolean>(false);
@@ -1339,12 +1387,15 @@ const CanvasArea = React.memo(function CanvasArea({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
+        curveStateRef.current = null;
         setCurveState(null);
+        isBendingCurveRef.current = false;
         setIsDrawing(false);
         setDrawStart(null);
         currentCoordRef.current = null;
         scheduleCoordDisplayUpdate(null);
         endTransaction();
+        drawCanvas();
       }
     };
 
@@ -1765,8 +1816,35 @@ const CanvasArea = React.memo(function CanvasArea({
     drawStart, gridVisible,
     duplicateActive, duplicateOffsetX, duplicateOffsetY,
     moveActive, moveOffsetX, moveOffsetY, isMoveMode,
-    transformState, hoveredHandle
+    transformState, hoveredHandle, curveState
   ]);
+
+  // Clean up any uncommitted stroke, drawing state, or curve state on tool switch
+  useEffect(() => {
+    if (isDrawing) {
+      setIsDrawing(false);
+      setDrawStart(null);
+      cloneStartOffsetRef.current = null;
+      lastPaintCoord.current = null;
+      strokePointsRef.current = [];
+      lastPixelPerfectPointsRef.current = [];
+      initialLayerPixelsRef.current = null;
+      activeStrokeLayerPixelsRef.current = null;
+      activeModifiedIndicesRef.current.clear();
+      endTransaction();
+    }
+    if (currentTool !== 'curve' && (curveState || curveStateRef.current)) {
+      curveStateRef.current = null;
+      setCurveState(null);
+      isBendingCurveRef.current = false;
+    }
+    activeDrawingPointerIdRef.current = null;
+    secondaryNavPointerIdRef.current = null;
+    secondaryNavStartRef.current = null;
+    isMultiTouchNavigatingRef.current = false;
+    pinchRef.current = null;
+    activePointersRef.current.clear();
+  }, [currentTool]);
 
   // If frame or layer changes, finalize any active move/duplicate/transform to prevent carrying them over
   useEffect(() => {
@@ -1778,6 +1856,11 @@ const CanvasArea = React.memo(function CanvasArea({
     }
     if (duplicateActive) {
       cancelDuplication();
+    }
+    if (curveState || curveStateRef.current) {
+      curveStateRef.current = null;
+      setCurveState(null);
+      isBendingCurveRef.current = false;
     }
   }, [currentFrameId, currentLayerId]);
 
@@ -2137,24 +2220,33 @@ const CanvasArea = React.memo(function CanvasArea({
 
     // 5. Draw Brush Preview & Shape Drafts (Shape preview retained for shape tools only, pen/brush preview disabled for direct isolation)
     const currentCoord = currentCoordRef.current;
-    if (drawStart && currentCoord && (isDrawing || (currentTool === 'curve' && curveState))) {
+    const activeCurveState = curveStateRef.current || curveState;
+    if (currentCoord && (
+      (drawStart && isDrawing && ['line', 'rectangle', 'ellipse'].includes(currentTool)) ||
+      (currentTool === 'curve' && activeCurveState)
+    )) {
       if (['line', 'rectangle', 'ellipse', 'curve'].includes(currentTool)) {
         ctx.save();
         ctx.fillStyle = currentColor;
         ctx.globalAlpha = brushOpacity / 100;
 
         let previewPoints: { x: number; y: number }[] = [];
-        if (currentTool === 'line') {
+        if (currentTool === 'line' && drawStart) {
           previewPoints = getLinePoints(drawStart.x, drawStart.y, currentCoord.x, currentCoord.y);
-        } else if (currentTool === 'rectangle') {
+        } else if (currentTool === 'rectangle' && drawStart) {
           previewPoints = getRectanglePoints(drawStart.x, drawStart.y, currentCoord.x, currentCoord.y, fillShape);
-        } else if (currentTool === 'ellipse') {
+        } else if (currentTool === 'ellipse' && drawStart) {
           previewPoints = getEllipsePoints(drawStart.x, drawStart.y, currentCoord.x, currentCoord.y, fillShape);
-        } else if (currentTool === 'curve' && curveState) {
-          if (isDrawing) {
-            previewPoints = getLinePoints(curveState.start.x, curveState.start.y, curveState.end.x, curveState.end.y);
+        } else if (currentTool === 'curve' && activeCurveState) {
+          if (isBendingCurveRef.current) {
+            previewPoints = getCurvePoints(activeCurveState.start, activeCurveState.end, currentCoord);
+          } else if (isDrawing) {
+            previewPoints = getLinePoints(activeCurveState.start.x, activeCurveState.start.y, activeCurveState.end.x, activeCurveState.end.y);
           } else {
-            previewPoints = getCurvePoints(curveState.start, curveState.end, currentCoord);
+            previewPoints = getCurvePoints(activeCurveState.start, activeCurveState.end, currentCoord);
+          }
+          if (brushSize > 1) {
+            previewPoints = previewPoints.flatMap(p => getBrushPoints(p.x, p.y));
           }
         }
 
@@ -2899,13 +2991,121 @@ const CanvasArea = React.memo(function CanvasArea({
     paintStrokePoints([coord]);
   };
 
-  // --- MOUSE & TOUCH EVENT HANDLERS ---
-  const handleMouseDown = (e: React.MouseEvent) => {
+  // --- UNIFIED POINTER ENGINE (Stylus, Touch, Mouse) ---
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     // Robust Event Isolation: Abort canvas stroke if event originated from UI controls or buttons
     const targetElement = e.target as HTMLElement | null;
     if (targetElement && (targetElement.tagName === 'BUTTON' || targetElement.tagName === 'INPUT' || targetElement.tagName === 'SELECT' || targetElement.closest('button, input, select, [data-interactive="true"]'))) {
       return;
     }
+
+    // Palm Rejection: reject touch while stylus is active or if pen_only mode is requested
+    const isRecentStylus = isStylusActiveRef.current || (performance.now() - lastActiveStylusTimeRef.current < 400);
+    if (e.pointerType === 'touch' && isRecentStylus && (palmRejectionMode === 'pen_priority' || palmRejectionMode === 'pen_only')) {
+      return;
+    }
+    if (palmRejectionMode === 'pen_only' && e.pointerType === 'touch') {
+      return;
+    }
+
+    // Register active pointer
+    activePointersRef.current.set(e.pointerId, {
+      clientX: e.clientX,
+      clientY: e.clientY,
+      pointerType: e.pointerType,
+      pressure: e.pressure || 0.5,
+      tiltX: e.tiltX || 0,
+      tiltY: e.tiltY || 0,
+    });
+
+    if (e.pointerType === 'pen') {
+      isStylusActiveRef.current = true;
+      lastActiveStylusTimeRef.current = performance.now();
+    }
+
+    currentPointerInfoRef.current = {
+      id: e.pointerId,
+      type: e.pointerType,
+      pressure: e.pressure || 0.5,
+      tiltX: e.tiltX || 0,
+      tiltY: e.tiltY || 0,
+      clientX: e.clientX,
+      clientY: e.clientY,
+      buttons: e.buttons
+    };
+
+    // Multi-touch gestures:
+    // Case A: A primary pointer is already actively drawing (e.g. Stylus or Primary Touch)
+    if (activeDrawingPointerIdRef.current !== null && isDrawing && e.pointerId !== activeDrawingPointerIdRef.current) {
+      // Second pointer initiates secondary pan/zoom navigation WITHOUT altering isDrawing
+      secondaryNavPointerIdRef.current = e.pointerId;
+      secondaryNavStartRef.current = {
+        clientX: e.clientX,
+        clientY: e.clientY,
+        initialPanX: panX,
+        initialPanY: panY,
+        initialZoom: zoom
+      };
+
+      const primaryPointer = activePointersRef.current.get(activeDrawingPointerIdRef.current);
+      if (primaryPointer) {
+        const dx = e.clientX - primaryPointer.clientX;
+        const dy = e.clientY - primaryPointer.clientY;
+        const dist = Math.hypot(dx, dy);
+        pinchRef.current = {
+          active: true,
+          initialDist: Math.max(1, dist),
+          initialZoom: zoom,
+          initialPanX: panX,
+          initialPanY: panY,
+          centerClientX: (primaryPointer.clientX + e.clientX) / 2,
+          centerClientY: (primaryPointer.clientY + e.clientY) / 2
+        };
+      }
+      return;
+    }
+
+    // Case B: Standard two-finger multi-touch gestures when not actively drawing
+    if (activePointersRef.current.size >= 2) {
+      if (isDrawing) {
+        setIsDrawing(false);
+        setDrawStart(null);
+        cloneStartOffsetRef.current = null;
+        lastPaintCoord.current = null;
+        strokePointsRef.current = [];
+        lastPixelPerfectPointsRef.current = [];
+        initialLayerPixelsRef.current = null;
+        activeStrokeLayerPixelsRef.current = null;
+        activeModifiedIndicesRef.current.clear();
+        endTransaction();
+        drawCanvas();
+      }
+      activeDrawingPointerIdRef.current = null;
+      isMultiTouchNavigatingRef.current = true;
+
+      const pointers = Array.from(activePointersRef.current.values());
+      const p0 = pointers[0];
+      const p1 = pointers[1];
+      const dx = p1.clientX - p0.clientX;
+      const dy = p1.clientY - p0.clientY;
+      const dist = Math.hypot(dx, dy);
+      pinchRef.current = {
+        active: true,
+        initialDist: Math.max(1, dist),
+        initialZoom: zoom,
+        initialPanX: panX,
+        initialPanY: panY,
+        centerClientX: (p0.clientX + p1.clientX) / 2,
+        centerClientY: (p0.clientY + p1.clientY) / 2
+      };
+      return;
+    }
+
+    activeDrawingPointerIdRef.current = e.pointerId;
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      capturedPointerIdRef.current = e.pointerId;
+    } catch {}
 
     strokeStartTimeRef.current = performance.now();
     // Middle click or Pan tool ALWAYS activates panning (viewport pan decoupled from selection move)
@@ -2916,18 +3116,60 @@ const CanvasArea = React.memo(function CanvasArea({
     }
 
     if (transformState.isActive) {
-      if (hoveredHandle) {
-        activeHandleRef.current = hoveredHandle;
+      const rect = canvasRef.current!.getBoundingClientRect();
+      const pointerX = e.clientX - rect.left - panX;
+      const pointerY = e.clientY - rect.top - panY;
+      const projX = pointerX / zoom;
+      const projY = pointerY / zoom;
+
+      let handleToUse: string | null = null;
+      if (e.pointerType === 'mouse' && hoveredHandle) {
+        handleToUse = hoveredHandle;
+      } else {
+        const handles = getTransformHandles(
+          transformState.originalBounds,
+          transformState.pivot,
+          transformState.translation,
+          transformState.scale,
+          transformState.rotation,
+          zoom
+        );
+        let closestHandle: { name: string; dist: number } | null = null;
+        for (const h of handles) {
+          const dx = pointerX - h.x;
+          const dy = pointerY - h.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const maxDist = e.pointerType === 'mouse' ? 12 : (h.name === 'pivot' ? 14 : 22);
+          if (dist <= maxDist) {
+            if (!closestHandle || dist < closestHandle.dist) {
+              closestHandle = { name: h.name, dist };
+            }
+          }
+        }
+        if (closestHandle) {
+          handleToUse = closestHandle.name;
+        } else {
+          const tl = handles.find(h => h.name === 'tl')!;
+          const tr = handles.find(h => h.name === 'tr')!;
+          const br = handles.find(h => h.name === 'br')!;
+          const bl = handles.find(h => h.name === 'bl')!;
+          const polyPoints = [tl, tr, br, bl].map(h => ({ x: h.projectX, y: h.projectY }));
+          if (isPointInPolygon(projX, projY, polyPoints)) {
+            handleToUse = 'bounds';
+          }
+        }
+      }
+
+      if (handleToUse) {
+        setHoveredHandle(handleToUse);
+        activeHandleRef.current = handleToUse;
         dragStartMouseRef.current = { x: e.clientX, y: e.clientY };
         dragStartTransformRef.current = { ...transformState };
 
-        if (hoveredHandle === 'rot') {
-          const rect = canvasRef.current!.getBoundingClientRect();
-          const mouseX = e.clientX - rect.left - panX;
-          const mouseY = e.clientY - rect.top - panY;
+        if (handleToUse === 'rot') {
           const pivotScreenX = transformState.pivot.x * zoom;
           const pivotScreenY = transformState.pivot.y * zoom;
-          dragStartAngleRef.current = Math.atan2(mouseY - pivotScreenY, mouseX - pivotScreenX);
+          dragStartAngleRef.current = Math.atan2(pointerY - pivotScreenX, pointerX - pivotScreenX);
         }
         return;
       } else {
@@ -2936,8 +3178,8 @@ const CanvasArea = React.memo(function CanvasArea({
       }
     }
 
-    currentFractionalCoordRef.current = getFractionalCanvasCoords(e.clientX, e.clientY);
-    const coord = getSnappedPixelCoords(e.clientX, e.clientY, e);
+    currentFractionalCoordRef.current = getFractionalCanvasCoords(e.clientX, e.clientY, e.pointerType);
+    const coord = getSnappedPixelCoords(e.clientX, e.clientY, e, e.pointerType);
     if (!coord) return;
 
     // Handle stamp mode click
@@ -2965,7 +3207,7 @@ const CanvasArea = React.memo(function CanvasArea({
 
     // Selection tools: clicking INSIDE an existing selection starts moving it!
     const isSelectionTool = ['rect_select', 'ellipse_select', 'lasso_select', 'wand'].includes(currentTool);
-    if (isSelectionTool && selection.active && !duplicateActive && e.button === 0) {
+    if (isSelectionTool && selection.active && !duplicateActive && (e.button === 0 || e.pointerType !== 'mouse')) {
       const mode = getSelectionModeFromEvent(e);
       if (mode === 'replace') {
         const isInside = (coord.x >= 0 && coord.x < project.width && coord.y >= 0 && coord.y < project.height) &&
@@ -3002,8 +3244,8 @@ const CanvasArea = React.memo(function CanvasArea({
       }
     }
 
-    // Alt + click OR touch mode when isSelectingCloneSource is true to capture Clone Stamp source
-    if ((e.altKey || isSelectingCloneSource) && currentTool === 'clone_stamp') {
+    // Clone stamp: source setting via Alt, selection mode, or first touch if unset
+    if (currentTool === 'clone_stamp' && (e.altKey || isSelectingCloneSource || !cloneSource)) {
       onChangeCloneSource?.(coord);
       cloneStartOffsetRef.current = null;
       showToast?.(translate('canvas.cloneStampSourceSet', language).replace('{x}', String(coord.x)).replace('{y}', String(coord.y)), 'success');
@@ -3013,8 +3255,8 @@ const CanvasArea = React.memo(function CanvasArea({
       return;
     }
 
+    // Color picker
     if (currentTool === 'picker') {
-      // search topmost visible color across effective layers
       let pickedColor = '';
       for (const layer of project.layers) {
         if (layer.visible) {
@@ -3035,6 +3277,7 @@ const CanvasArea = React.memo(function CanvasArea({
       return;
     }
 
+    // Geometric selection tools (rect_select, ellipse_select)
     if (currentTool === 'rect_select' || currentTool === 'ellipse_select') {
       startTransaction();
       setIsDrawing(true);
@@ -3050,6 +3293,7 @@ const CanvasArea = React.memo(function CanvasArea({
       return;
     }
 
+    // Lasso select
     if (currentTool === 'lasso_select') {
       startTransaction();
       setIsDrawing(true);
@@ -3057,6 +3301,7 @@ const CanvasArea = React.memo(function CanvasArea({
       return;
     }
 
+    // Magic wand
     if (currentTool === 'wand') {
       const framePixels = project.pixels[currentFrameId];
       const activePixels = framePixels?.[currentLayerId];
@@ -3067,6 +3312,7 @@ const CanvasArea = React.memo(function CanvasArea({
       return;
     }
 
+    // Paint bucket
     if (currentTool === 'bucket') {
       const layerMeta = project.layers.find(l => l.id === currentLayerId);
       if (layerMeta?.locked || !layerMeta?.visible) {
@@ -3143,73 +3389,95 @@ const CanvasArea = React.memo(function CanvasArea({
       return;
     }
 
-    // Curve Tool: Step 2 Bending click
+    // Curve Tool
     if (currentTool === 'curve') {
       const layerMeta = project.layers.find(l => l.id === currentLayerId);
       if (layerMeta?.locked || !layerMeta?.visible) {
         showToast?.(translate('canvas.cannotDrawLockedOrHidden', language), 'error');
         return;
       }
-      if (!curveState) {
-        // Step 1: Start dragging curve line
-        setCurveState({ step: 'bend', start: coord, end: coord });
+      const activeCurve = curveStateRef.current || curveState;
+      if (!activeCurve) {
+        // Step 1: Start dragging curve baseline
+        const newCurve = { step: 'bend' as const, start: coord, end: coord };
+        curveStateRef.current = newCurve;
+        setCurveState(newCurve);
         startTransaction();
         setIsDrawing(true);
+        isBendingCurveRef.current = false;
         setDrawStart(coord);
         currentCoordRef.current = coord;
         scheduleCoordDisplayUpdate(coord);
+        drawCanvas();
       } else {
-        // Click during bend mode commits the curve!
-        startTransaction();
-        onStartHistoryAction?.();
-        const drawPoints = getCurvePoints(curveState.start, curveState.end, coord);
-        const framePixels = project.pixels[currentFrameId];
-        const layerPixels = framePixels?.[currentLayerId];
-        if (layerPixels) {
-          const updated = { ...project.pixels };
-          const layerClone = [...layerPixels];
-          
-          // 1. Symmetric points calculations
-          let finalPoints = drawPoints.flatMap(p => 
-            getSymmetricPoints(p.x, p.y, project.width, project.height, symmetry)
-          );
-
-          // 2. Tiling wrapping or filtering
-          if (tiling.active) {
-            finalPoints = finalPoints.map(p => ({
-              x: ((p.x % project.width) + project.width) % project.width,
-              y: ((p.y % project.height) + project.height) % project.height
-            }));
-          } else {
-            finalPoints = finalPoints.filter(p => 
-              p.x >= 0 && p.x < project.width && p.y >= 0 && p.y < project.height
+        // Step 2:
+        if (e.pointerType === 'mouse') {
+          // Click with mouse commits curve!
+          startTransaction();
+          onStartHistoryAction?.();
+          let drawPoints = getCurvePoints(activeCurve.start, activeCurve.end, coord);
+          if (brushSize > 1) {
+            drawPoints = drawPoints.flatMap(p => getBrushPoints(p.x, p.y));
+          }
+          const framePixels = project.pixels[currentFrameId];
+          const layerPixels = framePixels?.[currentLayerId];
+          if (layerPixels) {
+            const updated = { ...project.pixels };
+            const layerClone = [...layerPixels];
+            
+            // 1. Symmetric points calculations
+            let finalPoints = drawPoints.flatMap(p => 
+              getSymmetricPoints(p.x, p.y, project.width, project.height, symmetry)
             );
-          }
 
-          // 3. Selection masking
-          if (selection.active) {
-            finalPoints = finalPoints.filter(p => selection.pixels[p.y * project.width + p.x]);
-          }
+            // 2. Tiling wrapping or filtering
+            if (tiling.active) {
+              finalPoints = finalPoints.map(p => ({
+                x: ((p.x % project.width) + project.width) % project.width,
+                y: ((p.y % project.height) + project.height) % project.height
+              }));
+            } else {
+              finalPoints = finalPoints.filter(p => 
+                p.x >= 0 && p.x < project.width && p.y >= 0 && p.y < project.height
+              );
+            }
 
-          finalPoints.forEach(p => {
-            layerClone[p.y * project.width + p.x] = currentColor;
-          });
+            // 3. Selection masking
+            if (selection.active) {
+              finalPoints = finalPoints.filter(p => selection.pixels[p.y * project.width + p.x]);
+            }
 
-          updated[currentFrameId] = {
-            ...updated[currentFrameId],
-            [currentLayerId]: layerClone
-          };
-          onUpdatePixels(updated, false);
-          if (finalPoints.length > 0 && onRecordColorUsage) {
-            onRecordColorUsage(currentColor);
+            finalPoints.forEach(p => {
+              layerClone[p.y * project.width + p.x] = currentColor;
+            });
+
+            updated[currentFrameId] = {
+              ...updated[currentFrameId],
+              [currentLayerId]: layerClone
+            };
+            onUpdatePixels(updated, false);
+            if (finalPoints.length > 0 && onRecordColorUsage) {
+              onRecordColorUsage(currentColor);
+            }
           }
+          curveStateRef.current = null;
+          setCurveState(null);
+          setIsDrawing(false);
+          setDrawStart(null);
+          currentCoordRef.current = null;
+          scheduleCoordDisplayUpdate(null);
+          endTransaction();
+          drawCanvas();
+        } else {
+          // Touch or pen: start dragging curvature
+          startTransaction();
+          isBendingCurveRef.current = true;
+          setIsDrawing(true);
+          setDrawStart(activeCurve.start);
+          currentCoordRef.current = coord;
+          scheduleCoordDisplayUpdate(coord);
+          drawCanvas();
         }
-        setCurveState(null);
-        setIsDrawing(false);
-        setDrawStart(null);
-        currentCoordRef.current = null;
-        scheduleCoordDisplayUpdate(null);
-        endTransaction();
       }
       return;
     }
@@ -3245,6 +3513,8 @@ const CanvasArea = React.memo(function CanvasArea({
       handlePaintPixel(coord);
     }
   };
+
+  const handleMouseDown = (e: React.MouseEvent) => handlePointerDown(e as unknown as React.PointerEvent<HTMLDivElement>);
 
   // Real-time floating ruler indicator tracker (60/120fps hardware accelerated)
   const updateRulerIndicators = (clientX: number, clientY: number) => {
@@ -3282,14 +3552,111 @@ const CanvasArea = React.memo(function CanvasArea({
     if (indV) indV.style.opacity = '0';
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     updateRulerIndicators(e.clientX, e.clientY);
+
+    // Register and update pointer state
+    if (activePointersRef.current.has(e.pointerId)) {
+      activePointersRef.current.set(e.pointerId, {
+        clientX: e.clientX,
+        clientY: e.clientY,
+        pointerType: e.pointerType,
+        pressure: e.pressure || 0.5,
+        tiltX: e.tiltX || 0,
+        tiltY: e.tiltY || 0,
+      });
+    }
+
+    currentPointerInfoRef.current = {
+      id: e.pointerId,
+      type: e.pointerType,
+      pressure: e.pressure || 0.5,
+      tiltX: e.tiltX || 0,
+      tiltY: e.tiltY || 0,
+      clientX: e.clientX,
+      clientY: e.clientY,
+      buttons: e.buttons
+    };
+
+    // Palm Rejection: reject touch movement while stylus is active or if pen_only mode is requested
+    const isRecentStylus = isStylusActiveRef.current || (performance.now() - lastActiveStylusTimeRef.current < 400);
+    if (e.pointerType === 'touch' && isRecentStylus && (palmRejectionMode === 'pen_priority' || palmRejectionMode === 'pen_only')) {
+      return;
+    }
+    if (palmRejectionMode === 'pen_only' && e.pointerType === 'touch') {
+      return;
+    }
+
+    // Multi-touch gestures:
+    // Case 1: Secondary pointer navigation while primary pointer continues drawing
+    if (secondaryNavPointerIdRef.current !== null && e.pointerId === secondaryNavPointerIdRef.current) {
+      if (pinchRef.current?.active && activeDrawingPointerIdRef.current !== null) {
+        const primaryPointer = activePointersRef.current.get(activeDrawingPointerIdRef.current);
+        if (primaryPointer) {
+          const dx = e.clientX - primaryPointer.clientX;
+          const dy = e.clientY - primaryPointer.clientY;
+          const dist = Math.hypot(dx, dy);
+          const currentCenterX = (primaryPointer.clientX + e.clientX) / 2;
+          const currentCenterY = (primaryPointer.clientY + e.clientY) / 2;
+
+          const scale = dist / pinchRef.current.initialDist;
+          const nextZoom = Math.max(1, Math.min(100, Math.round(pinchRef.current.initialZoom * scale * 10) / 10));
+          const panDeltaX = currentCenterX - pinchRef.current.centerClientX;
+          const panDeltaY = currentCenterY - pinchRef.current.centerClientY;
+
+          setZoom(nextZoom);
+          setPanX(Math.round(pinchRef.current.initialPanX + panDeltaX));
+          setPanY(Math.round(pinchRef.current.initialPanY + panDeltaY));
+          return;
+        }
+      }
+
+      if (secondaryNavStartRef.current) {
+        const deltaX = e.clientX - secondaryNavStartRef.current.clientX;
+        const deltaY = e.clientY - secondaryNavStartRef.current.clientY;
+        setPanX(Math.round(secondaryNavStartRef.current.initialPanX + deltaX));
+        setPanY(Math.round(secondaryNavStartRef.current.initialPanY + deltaY));
+      }
+      return;
+    }
+
+    // Case 2: Standard two-finger multi-touch gestures when not actively drawing
+    if (activePointersRef.current.size >= 2 && pinchRef.current?.active && activeDrawingPointerIdRef.current === null) {
+      const pointers = Array.from(activePointersRef.current.values());
+      const p0 = pointers[0];
+      const p1 = pointers[1];
+      const dx = p1.clientX - p0.clientX;
+      const dy = p1.clientY - p0.clientY;
+      const dist = Math.hypot(dx, dy);
+      const currentCenterX = (p0.clientX + p1.clientX) / 2;
+      const currentCenterY = (p0.clientY + p1.clientY) / 2;
+
+      const scale = dist / pinchRef.current.initialDist;
+      const nextZoom = Math.max(1, Math.min(100, Math.round(pinchRef.current.initialZoom * scale * 10) / 10));
+      const panDeltaX = currentCenterX - pinchRef.current.centerClientX;
+      const panDeltaY = currentCenterY - pinchRef.current.centerClientY;
+
+      setZoom(nextZoom);
+      setPanX(Math.round(pinchRef.current.initialPanX + panDeltaX));
+      setPanY(Math.round(pinchRef.current.initialPanY + panDeltaY));
+      return;
+    }
+
+    if (isMultiTouchNavigatingRef.current) return;
+    if (activeDrawingPointerIdRef.current !== null && e.pointerId !== activeDrawingPointerIdRef.current) return;
+
+    if (isPanning) {
+      setPanX(e.clientX - panStart.x);
+      setPanY(e.clientY - panStart.y);
+      return;
+    }
+
     if (transformState.isActive) {
       if (activeHandleRef.current && dragStartMouseRef.current && dragStartTransformRef.current) {
         const rect = canvasRef.current!.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left - panX;
-        const mouseY = e.clientY - rect.top - panY;
-        const rawProj = { x: mouseX / zoom, y: mouseY / zoom };
+        const pointerX = e.clientX - rect.left - panX;
+        const pointerY = e.clientY - rect.top - panY;
+        const rawProj = { x: pointerX / zoom, y: pointerY / zoom };
         const snappedProj = getSnappedCoords(rawProj, e);
         const projX = snappedProj ? snappedProj.x : rawProj.x;
         const projY = snappedProj ? snappedProj.y : rawProj.y;
@@ -3333,7 +3700,7 @@ const CanvasArea = React.memo(function CanvasArea({
         } else if (h === 'rot') {
           const pivotScreenX = startTransform.pivot.x * zoom;
           const pivotScreenY = startTransform.pivot.y * zoom;
-          const currentAngle = Math.atan2(mouseY - pivotScreenY, mouseX - pivotScreenX);
+          const currentAngle = Math.atan2(pointerY - pivotScreenX, pointerX - pivotScreenX);
           let nextRotation = startTransform.rotation + (currentAngle - dragStartAngleRef.current);
           if (e.shiftKey) {
             const snap = Math.PI / 12; // 15 degrees
@@ -3342,12 +3709,10 @@ const CanvasArea = React.memo(function CanvasArea({
           setTransformState(prev => ({ ...prev, rotation: nextRotation }));
         } else {
           // Scale Handles (tl, tr, bl, br, tc, bc, lc, rc)
-          // Unrotate mouse coordinates back to the local unrotated frame using backwardTransform
           const unrotPt = backwardTransform(projX, projY, startTransform.pivot, { x: 1, y: 1 }, { x: 0, y: 0 }, startTransform.rotation);
           const unrotX = unrotPt.x - startTransform.pivot.x;
           const unrotY = unrotPt.y - startTransform.pivot.y;
 
-          // Get original handle offset from pivot
           let ox = 0;
           let oy = 0;
           const { x: ox0, y: oy0, width, height } = startTransform.originalBounds;
@@ -3381,7 +3746,6 @@ const CanvasArea = React.memo(function CanvasArea({
           let sx = ox !== 0 ? unrotX / ox : startTransform.scale.x;
           let sy = oy !== 0 ? unrotY / oy : startTransform.scale.y;
 
-          // Keep scale from collapsing to exactly 0 or glitching
           if (Math.abs(sx) < 0.05) sx = 0.05 * Math.sign(sx || 1);
           if (Math.abs(sy) < 0.05) sy = 0.05 * Math.sign(sy || 1);
 
@@ -3390,7 +3754,6 @@ const CanvasArea = React.memo(function CanvasArea({
           } else if (h === 'tc' || h === 'bc') {
             sx = startTransform.scale.x;
           } else if (e.shiftKey && ['tl', 'tr', 'bl', 'br'].includes(h)) {
-            // Proportional scaling for corners
             const avgScale = (Math.abs(sx) + Math.abs(sy)) / 2;
             sx = avgScale * Math.sign(sx);
             sy = avgScale * Math.sign(sy);
@@ -3402,8 +3765,8 @@ const CanvasArea = React.memo(function CanvasArea({
           }));
         }
         return;
-      } else {
-        // Just hover detection
+      } else if (e.pointerType === 'mouse') {
+        // Just hover detection for mouse
         const rect = canvasRef.current?.getBoundingClientRect();
         if (rect) {
           const mouseX = e.clientX - rect.left - panX;
@@ -3411,7 +3774,6 @@ const CanvasArea = React.memo(function CanvasArea({
           const projX = mouseX / zoom;
           const projY = mouseY / zoom;
 
-          // Get handles to test screen distances
           const handles = getTransformHandles(
             transformState.originalBounds,
             transformState.pivot,
@@ -3421,7 +3783,6 @@ const CanvasArea = React.memo(function CanvasArea({
             zoom
           );
 
-          // Find if near any handle (<= 8 screen pixels)
           const found = handles.find(h => {
             const dx = mouseX - h.x;
             const dy = mouseY - h.y;
@@ -3431,7 +3792,6 @@ const CanvasArea = React.memo(function CanvasArea({
           if (found) {
             setHoveredHandle(found.name);
           } else {
-            // Check if inside bounding box polygon
             const tl = handles.find(h => h.name === 'tl')!;
             const tr = handles.find(h => h.name === 'tr')!;
             const br = handles.find(h => h.name === 'br')!;
@@ -3448,13 +3808,7 @@ const CanvasArea = React.memo(function CanvasArea({
       }
     }
 
-    if (isPanning) {
-      setPanX(e.clientX - panStart.x);
-      setPanY(e.clientY - panStart.y);
-      return;
-    }
-
-    // Handle selection duplicate dragging (uses screen coords, runs even if mouse goes outside canvas)
+    // Handle selection duplicate dragging (uses screen coords, runs even if pointer goes outside canvas)
     if (duplicateActive && isDraggingDuplicate && dragDuplicateStart && dragDuplicateStartOffset) {
       const deltaX = e.clientX - dragDuplicateStart.x;
       const deltaY = e.clientY - dragDuplicateStart.y;
@@ -3465,7 +3819,7 @@ const CanvasArea = React.memo(function CanvasArea({
       return;
     }
 
-    // Handle selection moving dragging (uses screen coords, runs even if mouse goes outside canvas)
+    // Handle selection moving dragging (uses screen coords, runs even if pointer goes outside canvas)
     if (moveActive && isDraggingMove && dragMoveStart && dragMoveStartOffset) {
       const deltaX = e.clientX - dragMoveStart.x;
       const deltaY = e.clientY - dragMoveStart.y;
@@ -3476,8 +3830,54 @@ const CanvasArea = React.memo(function CanvasArea({
       return;
     }
 
-    currentFractionalCoordRef.current = getFractionalCanvasCoords(e.clientX, e.clientY);
-    const coord = getSnappedPixelCoords(e.clientX, e.clientY, e);
+    // Handle curve tool dragging start to end or bending
+    if (currentTool === 'curve' && (curveStateRef.current || curveState)) {
+      const activeCurve = curveStateRef.current || curveState!;
+      const snappedCoord = getSnappedPixelCoords(e.clientX, e.clientY, e, e.pointerType);
+      if (snappedCoord) {
+        currentCoordRef.current = snappedCoord;
+        scheduleCoordDisplayUpdate(snappedCoord);
+        if (isBendingCurveRef.current) {
+          drawCanvas();
+        } else if (isDrawing) {
+          activeCurve.end = snappedCoord;
+          curveStateRef.current = { ...activeCurve };
+          setCurveState({ ...activeCurve });
+          drawCanvas();
+        } else {
+          drawCanvas();
+        }
+      }
+      return;
+    }
+
+    // Allow continuous color sampling when dragging with color picker
+    if (currentTool === 'picker' && (isDrawing || e.buttons > 0 || e.pointerType !== 'mouse')) {
+      const coord = getSnappedPixelCoords(e.clientX, e.clientY, e, e.pointerType);
+      if (coord) {
+        let pickedColor = '';
+        for (const layer of project.layers) {
+          if (layer.visible) {
+            const effective = LayerResolutionService.getEffectiveLayerPixels(project, currentFrameId, layer.id);
+            const color = effective?.pixels?.[coord.y * project.width + coord.x];
+            if (color && color !== '' && color !== 'transparent') {
+              pickedColor = color;
+              break;
+            }
+          }
+        }
+        if (pickedColor) {
+          onPickColor(pickedColor);
+          if (onRecordColorUsage) {
+            onRecordColorUsage(pickedColor);
+          }
+        }
+      }
+      return;
+    }
+
+    currentFractionalCoordRef.current = getFractionalCanvasCoords(e.clientX, e.clientY, e.pointerType);
+    const coord = getSnappedPixelCoords(e.clientX, e.clientY, e, e.pointerType);
     if (!coord) {
       currentCoordRef.current = null;
       currentFractionalCoordRef.current = null;
@@ -3498,12 +3898,6 @@ const CanvasArea = React.memo(function CanvasArea({
       }
     } else if (isHoveringSelection) {
       setIsHoveringSelection(false);
-    }
-
-    // Handle curve tool dragging start to end
-    if (isDrawing && currentTool === 'curve' && curveState) {
-      setCurveState(prev => prev ? { ...prev, end: coord } : null);
-      return;
     }
 
     if (isDrawing && ['pen', 'eraser', 'spray', 'dithering', 'clone_stamp'].includes(currentTool)) {
@@ -3531,7 +3925,49 @@ const CanvasArea = React.memo(function CanvasArea({
     }
   };
 
-  const handleMouseUp = () => {
+  const handleMouseMove = (e: React.MouseEvent) => handlePointerMove(e as unknown as React.PointerEvent<HTMLDivElement>);
+
+  const handlePointerUp = (e?: React.PointerEvent<HTMLDivElement>) => {
+    if (e) {
+      try {
+        if (capturedPointerIdRef.current !== null && (e.currentTarget as HTMLElement).hasPointerCapture(capturedPointerIdRef.current)) {
+          (e.currentTarget as HTMLElement).releasePointerCapture(capturedPointerIdRef.current);
+        }
+      } catch {}
+      if (capturedPointerIdRef.current === e.pointerId) {
+        capturedPointerIdRef.current = null;
+      }
+      activePointersRef.current.delete(e.pointerId);
+      if (e.pointerType === 'pen') {
+        isStylusActiveRef.current = false;
+        lastActiveStylusTimeRef.current = performance.now();
+      }
+      if (secondaryNavPointerIdRef.current === e.pointerId) {
+        secondaryNavPointerIdRef.current = null;
+        secondaryNavStartRef.current = null;
+        pinchRef.current = null;
+        return;
+      }
+    } else {
+      activePointersRef.current.clear();
+      isStylusActiveRef.current = false;
+      capturedPointerIdRef.current = null;
+      secondaryNavPointerIdRef.current = null;
+      secondaryNavStartRef.current = null;
+    }
+
+    if (activePointersRef.current.size < 2) {
+      pinchRef.current = null;
+    }
+    if (activePointersRef.current.size === 0) {
+      isMultiTouchNavigatingRef.current = false;
+    }
+
+    if (e && activeDrawingPointerIdRef.current !== null && e.pointerId !== activeDrawingPointerIdRef.current) {
+      return;
+    }
+    activeDrawingPointerIdRef.current = null;
+
     if (activeHandleRef.current) {
       activeHandleRef.current = null;
       dragStartMouseRef.current = null;
@@ -3563,17 +3999,82 @@ const CanvasArea = React.memo(function CanvasArea({
       return;
     }
 
+    // Curve Tool pointer finalization
+    const activeCurve = curveStateRef.current || curveState;
+    if (currentTool === 'curve' && activeCurve) {
+      if (isBendingCurveRef.current) {
+        // Step 2 finished: Commit the curve to the layer!
+        const finalCoord = currentCoordRef.current || activeCurve.end;
+        onStartHistoryAction?.();
+        let drawPoints = getCurvePoints(activeCurve.start, activeCurve.end, finalCoord);
+        if (brushSize > 1) {
+          drawPoints = drawPoints.flatMap(p => getBrushPoints(p.x, p.y));
+        }
+        const framePixels = project.pixels[currentFrameId];
+        const layerPixels = framePixels?.[currentLayerId];
+        if (layerPixels) {
+          const updated = { ...project.pixels };
+          const layerClone = [...layerPixels];
+
+          // 1. Symmetric points calculations
+          let finalPoints = drawPoints.flatMap(p => 
+            getSymmetricPoints(p.x, p.y, project.width, project.height, symmetry)
+          );
+
+          // 2. Tiling wrapping or filtering
+          if (tiling.active) {
+            finalPoints = finalPoints.map(p => ({
+              x: ((p.x % project.width) + project.width) % project.width,
+              y: ((p.y % project.height) + project.height) % project.height
+            }));
+          } else {
+            finalPoints = finalPoints.filter(p => 
+              p.x >= 0 && p.x < project.width && p.y >= 0 && p.y < project.height
+            );
+          }
+
+          // 3. Selection masking
+          if (selection.active) {
+            finalPoints = finalPoints.filter(p => selection.pixels[p.y * project.width + p.x]);
+          }
+
+          finalPoints.forEach(p => {
+            layerClone[p.y * project.width + p.x] = currentColor;
+          });
+
+          updated[currentFrameId] = {
+            ...updated[currentFrameId],
+            [currentLayerId]: layerClone
+          };
+          onUpdatePixels(updated, false);
+          if (finalPoints.length > 0 && onRecordColorUsage) {
+            onRecordColorUsage(currentColor);
+          }
+        }
+        curveStateRef.current = null;
+        setCurveState(null);
+        isBendingCurveRef.current = false;
+        setIsDrawing(false);
+        setDrawStart(null);
+        currentCoordRef.current = null;
+        scheduleCoordDisplayUpdate(null);
+        endTransaction();
+        drawCanvas();
+        return;
+      } else if (isDrawing) {
+        // Step 1 finished: Baseline is set! Keep curveState for Step 2 bending.
+        setIsDrawing(false);
+        endTransaction();
+        drawCanvas();
+        return;
+      }
+    }
+
     if (isDrawing && (currentTool === 'rect_select' || currentTool === 'ellipse_select')) {
       dragSelectionInitialMaskRef.current = null;
       syncSelectionFromEngine();
       setIsDrawing(false);
       setDrawStart(null);
-      endTransaction();
-      return;
-    }
-
-    if (isDrawing && currentTool === 'curve' && curveState) {
-      setIsDrawing(false);
       endTransaction();
       return;
     }
@@ -3714,263 +4215,78 @@ const CanvasArea = React.memo(function CanvasArea({
     endTransaction();
   };
 
-  // --- MOBILE TOUCH SUPPORT HANDLERS ---
-  const handleTouchStart = (e: React.TouchEvent) => {
-    // Multi-touch gestures (Pinch-to-zoom & Two-finger Pan)
-    if (e.touches.length >= 2) {
-      if (isDrawing) {
-        setIsDrawing(false);
-        setDrawStart(null);
-        endTransaction();
-      }
-      const t0 = e.touches[0];
-      const t1 = e.touches[1];
-      const dx = t1.clientX - t0.clientX;
-      const dy = t1.clientY - t0.clientY;
-      const dist = Math.hypot(dx, dy);
-      pinchRef.current = {
-        active: true,
-        initialDist: Math.max(1, dist),
-        initialZoom: zoom,
-        initialPanX: panX,
-        initialPanY: panY,
-        centerClientX: (t0.clientX + t1.clientX) / 2,
-        centerClientY: (t0.clientY + t1.clientY) / 2
-      };
-      return;
-    }
-
-    // Robust Event Isolation: Abort canvas stroke if touch originated from UI controls or buttons
-    const targetElement = e.target as HTMLElement | null;
-    if (targetElement && (targetElement.tagName === 'BUTTON' || targetElement.tagName === 'INPUT' || targetElement.tagName === 'SELECT' || targetElement.closest('button, input, select, [data-interactive="true"]'))) {
-      return;
-    }
-
-    strokeStartTimeRef.current = performance.now();
-    const touch = e.touches[0];
-    if (currentTool === 'pan') {
-      setIsPanning(true);
-      setPanStart({ x: touch.clientX - panX, y: touch.clientY - panY });
-      return;
-    }
-
-    currentFractionalCoordRef.current = getFractionalCanvasCoords(touch.clientX, touch.clientY);
-    const coord = getSnappedPixelCoords(touch.clientX, touch.clientY, e);
-    if (!coord) return;
-
-    if (duplicateActive) {
-      const nx = coord.x - duplicateOffsetX;
-      const ny = coord.y - duplicateOffsetY;
-      const isInsideDisplaced = (nx >= 0 && nx < project.width && ny >= 0 && ny < project.height) &&
-        duplicateMask[ny * project.width + nx];
-
-      if (isInsideDisplaced) {
-        setIsDraggingDuplicate(true);
-        setDragDuplicateStart({ x: touch.clientX, y: touch.clientY });
-        setDragDuplicateStartOffset({ x: duplicateOffsetX, y: duplicateOffsetY });
-        return;
-      } else {
-        acceptDuplication();
-      }
-    }
-
-    // Selection tools: touching INSIDE an existing selection starts moving it!
-    const isSelectionTool = ['rect_select', 'ellipse_select', 'lasso_select', 'wand'].includes(currentTool);
-    if (isSelectionTool && selection.active && !duplicateActive) {
-      const mode = getSelectionModeFromEvent(e);
-      if (mode === 'replace') {
-        const isInside = (coord.x >= 0 && coord.x < project.width && coord.y >= 0 && coord.y < project.height) &&
-          (selection.pixels[coord.y * project.width + coord.x] || (selectionEngineRef.current && selectionEngineRef.current.contains(coord.x, coord.y)));
-
-        if (isInside) {
-          startMoveSelection(0, 0);
-          setIsDraggingDuplicate(true);
-          setDragDuplicateStart({ x: touch.clientX, y: touch.clientY });
-          setDragDuplicateStartOffset({ x: 0, y: 0 });
-          return;
-        }
-      }
-    }
-
-    // Handle move dragging interaction when NOT using the Mover tool
-    if (moveActive) {
-      let clickedInside = false;
-      const nx = coord.x - moveOffsetX;
-      const ny = coord.y - moveOffsetY;
-      if (nx >= 0 && nx < project.width && ny >= 0 && ny < project.height) {
-        const idx = ny * project.width + nx;
-        if (moveMask[idx]) {
-          clickedInside = true;
-        }
-      }
-      if (clickedInside) {
-        setIsDraggingMove(true);
-        setDragMoveStart({ x: touch.clientX, y: touch.clientY });
-        setDragMoveStartOffset({ x: moveOffsetX, y: moveOffsetY });
-        return;
-      } else {
-        acceptMove();
-      }
-    }
-
-    if (['pen', 'eraser', 'line', 'rectangle', 'ellipse', 'spray', 'dithering', 'clone_stamp'].includes(currentTool)) {
-      const layerMeta = project.layers.find(l => l.id === currentLayerId);
-      if (layerMeta?.locked || !layerMeta?.visible) {
-        showToast?.(translate('canvas.layerLockedOrHidden', language), 'error');
-        return;
-      }
-      onStartHistoryAction?.();
-    }
-
-    startTransaction();
-    setIsDrawing(true);
-    setDrawStart(coord);
-    currentCoordRef.current = coord;
-    scheduleCoordDisplayUpdate(coord);
-
-    if (['pen', 'eraser', 'spray', 'dithering', 'clone_stamp'].includes(currentTool)) {
-      if (currentTool === 'clone_stamp' && cloneSource) {
-        cloneStartOffsetRef.current = {
-          dx: cloneSource.x - coord.x,
-          dy: cloneSource.y - coord.y
-        };
-      }
-      lastPaintCoord.current = coord;
-      strokePointsRef.current = [];
-      lastPixelPerfectPointsRef.current = [];
-      initialLayerPixelsRef.current = null;
-      activeStrokeLayerPixelsRef.current = null;
-      activeModifiedIndicesRef.current.clear();
-      handlePaintPixel(coord);
-    } else if (currentTool === 'lasso_select') {
-      setLassoPath([coord]);
-    }
+  const handlePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
+    handlePointerUp(e);
+    hideRulerIndicators();
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (e.touches[0]) {
-      updateRulerIndicators(e.touches[0].clientX, e.touches[0].clientY);
-    }
-    // Multi-touch gestures (Pinch-to-zoom & Two-finger Pan)
-    if (e.touches.length >= 2 && pinchRef.current?.active) {
-      const t0 = e.touches[0];
-      const t1 = e.touches[1];
-      const dx = t1.clientX - t0.clientX;
-      const dy = t1.clientY - t0.clientY;
-      const dist = Math.hypot(dx, dy);
-      const currentCenterX = (t0.clientX + t1.clientX) / 2;
-      const currentCenterY = (t0.clientY + t1.clientY) / 2;
-
-      const scale = dist / pinchRef.current.initialDist;
-      const nextZoom = Math.max(1, Math.min(100, Math.round(pinchRef.current.initialZoom * scale * 10) / 10));
-      const panDeltaX = currentCenterX - pinchRef.current.centerClientX;
-      const panDeltaY = currentCenterY - pinchRef.current.centerClientY;
-
-      setZoom(nextZoom);
-      setPanX(Math.round(pinchRef.current.initialPanX + panDeltaX));
-      setPanY(Math.round(pinchRef.current.initialPanY + panDeltaY));
-      return;
-    }
-
-    const touch = e.touches[0];
-    if (isPanning) {
-      setPanX(touch.clientX - panStart.x);
-      setPanY(touch.clientY - panStart.y);
-      return;
-    }
-
-    // Handle selection duplicate dragging
-    if (duplicateActive && isDraggingDuplicate && dragDuplicateStart && dragDuplicateStartOffset) {
-      const deltaX = touch.clientX - dragDuplicateStart.x;
-      const deltaY = touch.clientY - dragDuplicateStart.y;
-      const dx = Math.round(deltaX / zoom);
-      const dy = Math.round(deltaY / zoom);
-      setDuplicateOffsetX(dragDuplicateStartOffset.x + dx);
-      setDuplicateOffsetY(dragDuplicateStartOffset.y + dy);
-      return;
-    }
-
-    // Handle selection moving dragging
-    if (moveActive && isDraggingMove && dragMoveStart && dragMoveStartOffset) {
-      const deltaX = touch.clientX - dragMoveStart.x;
-      const deltaY = touch.clientY - dragMoveStart.y;
-      const manager = getMoveManagerInstance();
-      const nextOffsets = manager.drag(deltaX, deltaY, zoom, dragMoveStartOffset);
-      setMoveOffsetX(nextOffsets.offsetX);
-      setMoveOffsetY(nextOffsets.offsetY);
-      return;
-    }
-
-    currentFractionalCoordRef.current = getFractionalCanvasCoords(touch.clientX, touch.clientY);
-    const coord = getSnappedPixelCoords(touch.clientX, touch.clientY, e);
-    if (!coord) return;
-
-    currentCoordRef.current = coord;
-    scheduleCoordDisplayUpdate(coord);
-    if (isDrawing && ['pen', 'eraser', 'spray', 'dithering', 'clone_stamp'].includes(currentTool)) {
-      if (lastPaintCoord.current) {
-        handlePaintContinuous(lastPaintCoord.current, coord);
-      } else {
-        handlePaintPixel(coord);
-      }
-      lastPaintCoord.current = coord;
-    } else if (isDrawing && currentTool === 'lasso_select') {
-      setLassoPath(prev => {
-        const last = prev[prev.length - 1];
-        if (last && (last.x !== coord.x || last.y !== coord.y)) {
-          return [...prev, coord];
-        }
-        return prev;
-      });
-    } else if (isDrawing && currentTool === 'rect_select' && drawStart) {
-      const x1 = Math.min(drawStart.x, coord.x);
-      const x2 = Math.max(drawStart.x, coord.x);
-      const y1 = Math.min(drawStart.y, coord.y);
-      const y2 = Math.max(drawStart.y, coord.y);
-
-      const pixels = new Array(project.width * project.height).fill(false);
-      for (let y = y1; y <= y2; y++) {
-        for (let x = x1; x <= x2; x++) {
-          if (x >= 0 && x < project.width && y >= 0 && y < project.height) {
-            pixels[y * project.width + x] = true;
-          }
-        }
-      }
-      setSelectionWithEngine(pixels);
-    } else if (isDrawing && ['line', 'rectangle', 'ellipse'].includes(currentTool)) {
+  const handlePointerLeave = (e: React.PointerEvent<HTMLDivElement>) => {
+    hideRulerIndicators();
+    if (e.pointerType === 'mouse' && !isDrawing && !isPanning && !activeHandleRef.current) {
+      currentCoordRef.current = null;
+      scheduleCoordDisplayUpdate(null);
+      setIsHoveringSelection(false);
       drawCanvas();
     }
   };
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (e.touches.length < 2) {
-      pinchRef.current = null;
+  const handleMouseUp = () => handlePointerUp();
+
+  // --- MOBILE TOUCH SUPPORT HANDLERS ---
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches[0]) {
+      handlePointerDown({
+        clientX: e.touches[0].clientX,
+        clientY: e.touches[0].clientY,
+        pointerId: 1,
+        pointerType: 'touch',
+        pressure: 0.5,
+        tiltX: 0,
+        tiltY: 0,
+        currentTarget: containerRef.current,
+        target: e.target,
+        button: 0,
+        buttons: 1,
+      } as unknown as React.PointerEvent<HTMLDivElement>);
     }
-    handleMouseUp();
+    return;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches[0]) {
+      handlePointerMove({
+        clientX: e.touches[0].clientX,
+        clientY: e.touches[0].clientY,
+        pointerId: 1,
+        pointerType: "touch",
+        pressure: 0.5,
+        tiltX: 0,
+        tiltY: 0,
+        currentTarget: containerRef.current,
+        target: e.target,
+        button: 0,
+        buttons: 1,
+      } as unknown as React.PointerEvent<HTMLDivElement>);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    handlePointerUp({
+      pointerId: 1,
+      pointerType: "touch",
+      currentTarget: containerRef.current,
+    } as unknown as React.PointerEvent<HTMLDivElement>);
   };
 
   return (
     <div 
       ref={containerRef}
       className={`flex-1 min-h-0 w-full h-full bg-[var(--ui-workspace-bg)] border-0 rounded-none md:border md:border-[var(--ui-workspace-border)] md:rounded-xl overflow-hidden relative select-none touch-none ${getCursorClass()}`}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={(e) => {
-        handleMouseUp();
-        hideRulerIndicators();
-        setIsHoveringSelection(false);
-      }}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={(e) => {
-        handleTouchEnd(e);
-        hideRulerIndicators();
-      }}
-      onTouchCancel={(e) => {
-        handleTouchEnd(e);
-        hideRulerIndicators();
-      }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
+      onPointerLeave={handlePointerLeave}
       id="canvas-draw-area"
     >
       
@@ -4103,6 +4419,7 @@ const CanvasArea = React.memo(function CanvasArea({
       {(selection.active || moveActive || transformState.isActive) && (
         <div 
           className="absolute top-4 left-1/2 -translate-x-1/2 max-w-[calc(100%-1.5rem)] bg-[#0A1A12]/95 border border-[#1E4D40]/80 rounded-xl px-2.5 py-1.5 flex flex-wrap items-center justify-center gap-2 shadow-[0_8px_32px_rgba(0,0,0,0.6)] z-20 backdrop-blur-md animate-in fade-in zoom-in duration-200 pointer-events-auto"
+          onPointerDown={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
         >
@@ -4293,6 +4610,7 @@ const CanvasArea = React.memo(function CanvasArea({
             ? 'bottom-20' 
             : 'bottom-4'
         } flex flex-col gap-2 z-20`} 
+        onPointerDown={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()} 
         onTouchStart={(e) => e.stopPropagation()}
       >

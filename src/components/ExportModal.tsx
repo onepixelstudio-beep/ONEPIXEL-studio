@@ -713,14 +713,14 @@ export default function ExportModal({
         <div className="flex flex-col md:flex-row flex-1 overflow-y-auto md:overflow-hidden min-h-0">
           
           {/* Left Column: Formats List & Custom Options */}
-          <div className="w-full md:w-1/2 p-3 sm:p-5 overflow-y-auto border-b md:border-b-0 md:border-r border-[#23253F]/60 space-y-4 sm:space-y-5 max-h-none md:max-h-[58vh] scrollbar-thin">
+          <div className="w-full md:w-1/2 p-3 sm:p-5 overflow-visible md:overflow-y-auto border-b md:border-b-0 md:border-r border-[#23253F]/60 space-y-4 sm:space-y-5 max-h-none md:max-h-[58vh] scrollbar-thin">
             
             {/* Formats Selection */}
             <div className="space-y-3">
               <span className="text-xs text-slate-400 font-bold tracking-wider uppercase block">
                 {t.selectFormat}
               </span>
-              <div className="grid grid-cols-1 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 gap-2">
                 {pluginsToRender.map((plugin) => {
                   const Icon = iconMap[plugin.icon] || FileImage;
                   const isSelected = selectedPluginId === plugin.id;
@@ -824,15 +824,15 @@ export default function ExportModal({
                             </div>
 
                             {/* Preset pills (1x to 10x integer multiples) */}
-                            <div className="flex flex-wrap gap-1">
+                            <div className="flex flex-wrap gap-1.5 sm:gap-1">
                               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((preset) => (
                                 <button
                                   key={preset}
                                   type="button"
                                   onClick={() => handleOptionChange('scale', preset)}
-                                  className={`py-1 px-2 text-[10px] rounded font-mono font-bold transition border focus:ring-1 focus:ring-[#C8A96A] outline-none ${
+                                  className={`min-w-[32px] min-h-[30px] sm:min-w-0 sm:min-h-0 py-1.5 sm:py-1 px-2.5 sm:px-2 text-[11px] sm:text-[10px] rounded-lg font-mono font-bold transition border focus:ring-1 focus:ring-[#C8A96A] outline-none touch-manipulation cursor-pointer ${
                                     Number(val) === preset
-                                      ? 'bg-[#C8A96A] border-[#C8A96A] text-white shadow-md'
+                                      ? 'bg-[#C8A96A] border-[#C8A96A] text-[#102419] font-black shadow-md'
                                       : 'bg-[#141526] border-[#23253F] text-slate-400 hover:text-white hover:bg-[#1C1D32]'
                                   }`}
                                 >
@@ -850,7 +850,7 @@ export default function ExportModal({
                                 step={1}
                                 value={parseInt(val, 10) || 1}
                                 onChange={(e) => handleOptionChange('scale', Number(e.target.value))}
-                                className="flex-1 accent-[#C8A96A] bg-[#141526] h-1.5 rounded-lg appearance-none cursor-pointer"
+                                className="flex-1 accent-[#C8A96A] bg-[#141526] h-2 rounded-lg appearance-none cursor-pointer touch-none"
                               />
                               <input
                                 type="text"
@@ -999,7 +999,7 @@ export default function ExportModal({
           </div>
 
           {/* Right Column: Interactive Live Work Preview, Stats, Sandbox */}
-          <div className="w-full md:w-1/2 p-3 sm:p-5 bg-[#102419] overflow-y-auto space-y-4 sm:space-y-5 max-h-none md:max-h-[58vh] scrollbar-thin flex flex-col justify-between">
+          <div className="w-full md:w-1/2 p-3 sm:p-5 bg-[#102419] overflow-visible md:overflow-y-auto space-y-4 sm:space-y-5 max-h-none md:max-h-[58vh] scrollbar-thin flex flex-col justify-between">
             
             {/* Live Preview Monitor Panel */}
             <div className="bg-[#102419] border border-[#102419] rounded-2xl p-4 flex flex-col gap-4">

@@ -39,6 +39,16 @@ export const PngPlugin: ExportPlugin = {
         desc: 'Nombre del archivo final sin extensión.'
       },
       {
+        id: 'scale',
+        label: 'Escala (Upscale)',
+        type: 'number',
+        defaultValue: 1,
+        min: 1,
+        max: 10,
+        step: 1,
+        desc: 'Multiplicador entero de escala (1x a 10x) para pixel art nítido.'
+      },
+      {
         id: 'transparent',
         label: 'Transparencia de Fondo',
         type: 'boolean',
@@ -120,6 +130,16 @@ export const JpegPlugin: ExportPlugin = {
         type: 'text',
         defaultValue: '',
         desc: 'Nombre del archivo final sin extensión.'
+      },
+      {
+        id: 'scale',
+        label: 'Escala (Upscale)',
+        type: 'number',
+        defaultValue: 1,
+        min: 1,
+        max: 10,
+        step: 1,
+        desc: 'Multiplicador entero de escala (1x a 10x) para pixel art nítido.'
       },
       {
         id: 'quality',
@@ -208,6 +228,16 @@ export const WebpPlugin: ExportPlugin = {
         type: 'text',
         defaultValue: '',
         desc: 'Nombre del archivo final sin extensión.'
+      },
+      {
+        id: 'scale',
+        label: 'Escala (Upscale)',
+        type: 'number',
+        defaultValue: 1,
+        min: 1,
+        max: 10,
+        step: 1,
+        desc: 'Multiplicador entero de escala (1x a 10x) para pixel art nítido.'
       },
       {
         id: 'webpMode',
@@ -319,6 +349,16 @@ export const BmpPlugin: ExportPlugin = {
         desc: 'Nombre del archivo final sin extensión.'
       },
       {
+        id: 'scale',
+        label: 'Escala (Upscale)',
+        type: 'number',
+        defaultValue: 1,
+        min: 1,
+        max: 10,
+        step: 1,
+        desc: 'Multiplicador entero de escala (1x a 10x) para pixel art nítido.'
+      },
+      {
         id: 'transparent',
         label: 'Transparencia de Fondo',
         type: 'boolean',
@@ -393,6 +433,16 @@ export const TiffPlugin: ExportPlugin = {
         desc: 'Nombre del archivo final sin extensión.'
       },
       {
+        id: 'scale',
+        label: 'Escala (Upscale)',
+        type: 'number',
+        defaultValue: 1,
+        min: 1,
+        max: 10,
+        step: 1,
+        desc: 'Multiplicador entero de escala (1x a 10x) para pixel art nítido.'
+      },
+      {
         id: 'transparent',
         label: 'Transparencia de Fondo',
         type: 'boolean',
@@ -464,6 +514,16 @@ export const TgaPlugin: ExportPlugin = {
         type: 'text',
         defaultValue: '',
         desc: 'Nombre del archivo final sin extensión.'
+      },
+      {
+        id: 'scale',
+        label: 'Escala (Upscale)',
+        type: 'number',
+        defaultValue: 1,
+        min: 1,
+        max: 10,
+        step: 1,
+        desc: 'Multiplicador entero de escala (1x a 10x) para pixel art nítido.'
       },
       {
         id: 'transparent',

@@ -448,7 +448,9 @@ export const MobileQuickBar: React.FC<MobileQuickBarProps> = React.memo(function
       {/* Lápiz, Borrador, Bote de pintura, Gotero, Selección + Más opciones */}
       {/* ------------------------------------------------------------------ */}
       <div 
-        className="w-full max-w-full px-2 py-1 flex items-center justify-between gap-1 overflow-x-auto scrollbar-none bg-[#0a1811]/95 border-b border-white/5 box-border"
+        className={`w-full max-w-full px-2 flex items-center justify-between gap-1 overflow-x-auto scrollbar-none bg-[#0a1811]/95 border-b border-white/5 box-border ${
+          isLandscape ? 'py-0.5' : 'py-1'
+        }`}
         id="mobile-basic-tools-row"
       >
         <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-around sm:justify-start">
@@ -465,14 +467,18 @@ export const MobileQuickBar: React.FC<MobileQuickBarProps> = React.memo(function
                     onChangeTool(tool.id);
                   }
                 }}
-                className={`min-w-[40px] h-[34px] px-2 rounded-xl flex items-center justify-center gap-1.5 transition active:scale-95 touch-manipulation cursor-pointer border shrink-0 ${
+                className={`rounded-xl flex items-center justify-center gap-1.5 transition active:scale-95 touch-manipulation cursor-pointer border shrink-0 ${
+                  isLandscape 
+                    ? 'min-w-[34px] h-[28px] px-1.5' 
+                    : 'min-w-[40px] h-[34px] px-2'
+                } ${
                   isSelected
                     ? 'bg-[#C8A96A] text-[#102419] border-[#C8A96A] font-black shadow-md'
                     : 'bg-black/35 hover:bg-black/60 text-slate-300 border-white/10'
                 }`}
                 title={`${tool.label}${isSelected ? ' (Toca para opciones)' : ''}`}
               >
-                <Icon className="w-4 h-4 shrink-0" />
+                <Icon className={isLandscape ? "w-3.5 h-3.5 shrink-0" : "w-4 h-4 shrink-0"} />
                 <span className="text-[10px] font-bold hidden min-[380px]:inline">
                   {tool.label}
                 </span>
@@ -484,10 +490,12 @@ export const MobileQuickBar: React.FC<MobileQuickBarProps> = React.memo(function
           {secondaryInfo && (
             <button
               onClick={() => onOpenPanel('tools')}
-              className="min-w-[40px] h-[34px] px-2 rounded-xl flex items-center justify-center gap-1.5 transition active:scale-95 touch-manipulation cursor-pointer border shrink-0 bg-[#C8A96A] text-[#102419] border-[#C8A96A] font-black shadow-md ring-1 ring-[#C8A96A]/50 animate-in fade-in duration-150"
+              className={`rounded-xl flex items-center justify-center gap-1.5 transition active:scale-95 touch-manipulation cursor-pointer border shrink-0 bg-[#C8A96A] text-[#102419] border-[#C8A96A] font-black shadow-md ring-1 ring-[#C8A96A]/50 animate-in fade-in duration-150 ${
+                isLandscape ? 'min-w-[34px] h-[28px] px-1.5' : 'min-w-[40px] h-[34px] px-2'
+              }`}
               title={`Herramienta activa: ${secondaryInfo.label}. Toca para abrir opciones.`}
             >
-              <secondaryInfo.icon className="w-4 h-4 shrink-0" />
+              <secondaryInfo.icon className={isLandscape ? "w-3.5 h-3.5 shrink-0" : "w-4 h-4 shrink-0"} />
               <span className="text-[10px] font-bold">
                 {secondaryInfo.label}
               </span>
@@ -501,7 +509,9 @@ export const MobileQuickBar: React.FC<MobileQuickBarProps> = React.memo(function
           {onToggleTimeline && (
             <button
               onClick={onToggleTimeline}
-              className={`min-w-[42px] h-[34px] px-2 rounded-xl flex items-center justify-center gap-1.5 transition active:scale-95 touch-manipulation cursor-pointer border shrink-0 ${
+              className={`rounded-xl flex items-center justify-center gap-1.5 transition active:scale-95 touch-manipulation cursor-pointer border shrink-0 ${
+                isLandscape ? 'min-w-[36px] h-[28px] px-1.5' : 'min-w-[42px] h-[34px] px-2'
+              } ${
                 isTimelineOpen
                   ? 'bg-[#C8A96A] text-[#102419] border-[#C8A96A] font-black shadow-md'
                   : 'bg-black/40 hover:bg-black/60 text-[#C8A96A] border-white/10'
@@ -509,7 +519,7 @@ export const MobileQuickBar: React.FC<MobileQuickBarProps> = React.memo(function
               title={isTimelineOpen ? 'Ocultar línea de tiempo' : 'Línea de tiempo de animación'}
               id="mobile-btn-quickbar-timeline"
             >
-              <Film className="w-3.5 h-3.5 shrink-0" />
+              <Film className={isLandscape ? "w-3 h-3 shrink-0" : "w-3.5 h-3.5 shrink-0"} />
               <span className="text-[10px] font-bold">Anim</span>
             </button>
           )}
@@ -517,93 +527,57 @@ export const MobileQuickBar: React.FC<MobileQuickBarProps> = React.memo(function
           {/* Shortcut button to open all advanced tools & settings */}
           <button
             onClick={() => onOpenPanel(activePanel === 'tools' ? (null as any) : 'tools')}
-            className={`min-w-[34px] h-[34px] px-1.5 rounded-xl flex items-center justify-center gap-1 transition active:scale-95 touch-manipulation cursor-pointer border shrink-0 ${
+            className={`rounded-xl flex items-center justify-center gap-1 transition active:scale-95 touch-manipulation cursor-pointer border shrink-0 ${
+              isLandscape ? 'min-w-[30px] h-[28px] px-1' : 'min-w-[34px] h-[34px] px-1.5'
+            } ${
               activePanel === 'tools'
                 ? 'bg-[#C8A96A] text-[#102419] border-[#C8A96A] font-bold shadow-md'
                 : 'bg-black/40 hover:bg-black/60 text-slate-400 border-white/10'
             }`}
             title="Ver todas las herramientas y pinceles"
           >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <SlidersHorizontal className={isLandscape ? "w-3 h-3" : "w-3.5 h-3.5"} />
             <span className="text-[9px] font-bold hidden min-[440px]:inline">Más</span>
           </button>
         </div>
       </div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* 2. PALETA DE COLORES ACTIVA                                        */}
-      {/* Muestras táctiles de la paleta actual con acceso a selector       */}
+      {/* 2 & 1. PALETA DE COLORES Y HISTORIAL                               */}
+      {/* En landscape se combinan en una sola fila compacta                */}
       {/* ------------------------------------------------------------------ */}
-      <div 
-        className="w-full max-w-full px-2 pt-1 pb-0.5 flex items-center gap-1.5 overflow-hidden box-border"
-        id="mobile-active-palette-row"
-      >
-        {/* Active Palette Tag / Shortcut to full Color Panel */}
-        <button
-          onClick={() => onOpenPanel('color')}
-          className="flex items-center gap-1.5 shrink-0 px-2.5 py-1 rounded-xl bg-black/40 hover:bg-black/60 border border-white/10 active:scale-95 transition touch-manipulation cursor-pointer"
-          title="Abrir selector y paletas de color"
+      {isLandscape ? (
+        <div 
+          className="w-full max-w-full px-2 py-0.5 flex items-center gap-1.5 overflow-hidden box-border bg-[#07130d]"
+          id="mobile-landscape-color-row"
         >
-          <div 
-            className="w-3.5 h-3.5 rounded-sm border border-white/80 shadow-xs shrink-0"
-            style={{ backgroundColor: currentColor }}
-          />
-          <span className="text-[9.5px] font-bold text-slate-300 uppercase tracking-wider">
-            Paleta
-          </span>
-        </button>
+          {/* Active Palette Tag / Shortcut to full Color Panel */}
+          <button
+            onClick={() => onOpenPanel('color')}
+            className="flex items-center gap-1 shrink-0 px-2 py-0.5 rounded-lg bg-black/40 hover:bg-black/60 border border-white/10 active:scale-95 transition touch-manipulation cursor-pointer"
+            title="Abrir selector y paletas de color"
+          >
+            <div 
+              className="w-3 h-3 rounded-xs border border-white/80 shadow-xs shrink-0"
+              style={{ backgroundColor: currentColor }}
+            />
+            <span className="text-[8.5px] font-bold text-slate-300 uppercase tracking-wider">
+              Paleta
+            </span>
+          </button>
 
-        {/* Scrollable Palette Colors Strip */}
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5 flex-1 min-w-0">
-          {activeSwatches.map((color, idx) => {
-            const isSelected = currentColor.toLowerCase() === color.toLowerCase();
-            return (
-              <button
-                key={`palette-${color}-${idx}`}
-                onClick={() => onChangeColor(color)}
-                className={`min-w-[30px] min-h-[30px] w-[30px] h-[30px] rounded-xl transition-transform active:scale-90 touch-manipulation cursor-pointer shrink-0 flex items-center justify-center ${
-                  isSelected ? 'scale-110 ring-2 ring-[#C8A96A] ring-offset-1 ring-offset-[#102419]' : 'hover:scale-105'
-                }`}
-                title={`Color de paleta: ${color}`}
-              >
-                <div 
-                  className="w-full h-full rounded-xl border border-white/20 shadow-xs"
-                  style={{ backgroundColor: color }}
-                />
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* 1. HISTORIAL DE COLORES USADOS EN EL LIENZO                        */}
-      {/* Orden de abajo hacia arriba: Historial es la fila más inferior    */}
-      {/* ------------------------------------------------------------------ */}
-      <div 
-        className="w-full max-w-full px-2 pt-0.5 pb-2 flex items-center gap-1.5 overflow-hidden border-t border-white/5 box-border"
-        id="mobile-color-history-row"
-      >
-        {/* History Label */}
-        <div className="flex items-center gap-1 shrink-0 px-1.5 py-0.5">
-          <span className="text-[8.5px] font-bold text-slate-400 uppercase tracking-wider">
-            Historial
-          </span>
-        </div>
-
-        {/* Scrollable Color History Swatches */}
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5 flex-1 min-w-0">
-          {historySwatches.length > 0 ? (
-            historySwatches.map((color, idx) => {
+          {/* Palette Swatches */}
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none py-0.5 shrink-0 max-w-[42%]">
+            {activeSwatches.slice(0, 16).map((color, idx) => {
               const isSelected = currentColor.toLowerCase() === color.toLowerCase();
               return (
                 <button
-                  key={`history-${color}-${idx}`}
+                  key={`land-palette-${color}-${idx}`}
                   onClick={() => onChangeColor(color)}
-                  className={`min-w-[26px] min-h-[26px] w-[26px] h-[26px] rounded-lg transition-transform active:scale-90 touch-manipulation cursor-pointer shrink-0 flex items-center justify-center ${
+                  className={`min-w-[22px] min-h-[22px] w-[22px] h-[22px] rounded-lg transition-transform active:scale-90 touch-manipulation cursor-pointer shrink-0 flex items-center justify-center ${
                     isSelected ? 'scale-110 ring-2 ring-[#C8A96A] ring-offset-1 ring-offset-[#102419]' : 'hover:scale-105'
                   }`}
-                  title={`Color usado: ${color}`}
+                  title={`Color de paleta: ${color}`}
                 >
                   <div 
                     className="w-full h-full rounded-lg border border-white/20 shadow-xs"
@@ -611,15 +585,131 @@ export const MobileQuickBar: React.FC<MobileQuickBarProps> = React.memo(function
                   />
                 </button>
               );
-            })
-          ) : (
-            // Placeholder hint if user hasn't painted yet
-            <span className="text-[9px] text-slate-500 italic px-1 truncate">
-              Pinta en el lienzo para registrar colores...
-            </span>
-          )}
+            })}
+          </div>
+
+          <div className="w-[1px] h-3.5 bg-white/20 shrink-0" />
+
+          {/* History Label */}
+          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider shrink-0">
+            Historial
+          </span>
+
+          {/* History Swatches */}
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none py-0.5 flex-1 min-w-0">
+            {historySwatches.length > 0 ? (
+              historySwatches.slice(0, 12).map((color, idx) => {
+                const isSelected = currentColor.toLowerCase() === color.toLowerCase();
+                return (
+                  <button
+                    key={`land-history-${color}-${idx}`}
+                    onClick={() => onChangeColor(color)}
+                    className={`min-w-[20px] min-h-[20px] w-[20px] h-[20px] rounded-md transition-transform active:scale-90 touch-manipulation cursor-pointer shrink-0 flex items-center justify-center ${
+                      isSelected ? 'scale-110 ring-2 ring-[#C8A96A] ring-offset-1 ring-offset-[#102419]' : 'hover:scale-105'
+                    }`}
+                    title={`Color usado: ${color}`}
+                  >
+                    <div 
+                      className="w-full h-full rounded-md border border-white/20 shadow-xs"
+                      style={{ backgroundColor: color }}
+                    />
+                  </button>
+                );
+              })
+            ) : (
+              <span className="text-[8.5px] text-slate-500 italic truncate">
+                Sin historial
+              </span>
+            )}
+          </div>
         </div>
-      </div>
+      ) : (
+        <>
+          {/* 2. PALETA DE COLORES ACTIVA */}
+          <div 
+            className="w-full max-w-full px-2 pt-1 pb-0.5 flex items-center gap-1.5 overflow-hidden box-border"
+            id="mobile-active-palette-row"
+          >
+            {/* Active Palette Tag / Shortcut to full Color Panel */}
+            <button
+              onClick={() => onOpenPanel('color')}
+              className="flex items-center gap-1.5 shrink-0 px-2.5 py-1 rounded-xl bg-black/40 hover:bg-black/60 border border-white/10 active:scale-95 transition touch-manipulation cursor-pointer"
+              title="Abrir selector y paletas de color"
+            >
+              <div 
+                className="w-3.5 h-3.5 rounded-sm border border-white/80 shadow-xs shrink-0"
+                style={{ backgroundColor: currentColor }}
+              />
+              <span className="text-[9.5px] font-bold text-slate-300 uppercase tracking-wider">
+                Paleta
+              </span>
+            </button>
+
+            {/* Scrollable Palette Colors Strip */}
+            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5 flex-1 min-w-0">
+              {activeSwatches.map((color, idx) => {
+                const isSelected = currentColor.toLowerCase() === color.toLowerCase();
+                return (
+                  <button
+                    key={`palette-${color}-${idx}`}
+                    onClick={() => onChangeColor(color)}
+                    className={`min-w-[30px] min-h-[30px] w-[30px] h-[30px] rounded-xl transition-transform active:scale-90 touch-manipulation cursor-pointer shrink-0 flex items-center justify-center ${
+                      isSelected ? 'scale-110 ring-2 ring-[#C8A96A] ring-offset-1 ring-offset-[#102419]' : 'hover:scale-105'
+                    }`}
+                    title={`Color de paleta: ${color}`}
+                  >
+                    <div 
+                      className="w-full h-full rounded-xl border border-white/20 shadow-xs"
+                      style={{ backgroundColor: color }}
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 1. HISTORIAL DE COLORES USADOS EN EL LIENZO */}
+          <div 
+            className="w-full max-w-full px-2 pt-0.5 pb-2 flex items-center gap-1.5 overflow-hidden border-t border-white/5 box-border"
+            id="mobile-color-history-row"
+          >
+            {/* History Label */}
+            <div className="flex items-center gap-1 shrink-0 px-1.5 py-0.5">
+              <span className="text-[8.5px] font-bold text-slate-400 uppercase tracking-wider">
+                Historial
+              </span>
+            </div>
+
+            {/* Scrollable Color History Swatches */}
+            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5 flex-1 min-w-0">
+              {historySwatches.length > 0 ? (
+                historySwatches.map((color, idx) => {
+                  const isSelected = currentColor.toLowerCase() === color.toLowerCase();
+                  return (
+                    <button
+                      key={`history-${color}-${idx}`}
+                      onClick={() => onChangeColor(color)}
+                      className={`min-w-[26px] min-h-[26px] w-[26px] h-[26px] rounded-lg transition-transform active:scale-90 touch-manipulation cursor-pointer shrink-0 flex items-center justify-center ${
+                        isSelected ? 'scale-110 ring-2 ring-[#C8A96A] ring-offset-1 ring-offset-[#102419]' : 'hover:scale-105'
+                      }`}
+                      title={`Color usado: ${color}`}
+                    >
+                      <div 
+                        className="w-full h-full rounded-lg border border-white/20 shadow-xs"
+                        style={{ backgroundColor: color }}
+                      />
+                    </button>
+                  );
+                })
+              ) : (
+                <span className="text-[9px] text-slate-500 italic px-1 truncate">
+                  Pinta en el lienzo para registrar colores...
+                </span>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 });

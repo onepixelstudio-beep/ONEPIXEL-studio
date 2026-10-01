@@ -60,6 +60,16 @@ export const GifPlugin: ExportPlugin = {
         desc: 'Nombre del archivo final sin extensión.'
       },
       {
+        id: 'scale',
+        label: 'Escala (Upscale)',
+        type: 'number',
+        defaultValue: 1,
+        min: 1,
+        max: 10,
+        step: 1,
+        desc: 'Multiplicador entero de escala (1x a 10x) para pixel art nítido.'
+      },
+      {
         id: 'fps',
         label: 'Velocidad (FPS)',
         type: 'number',
@@ -164,6 +174,16 @@ export const ApngPlugin: ExportPlugin = {
         type: 'text',
         defaultValue: '',
         desc: 'Nombre del archivo final sin extensión.'
+      },
+      {
+        id: 'scale',
+        label: 'Escala (Upscale)',
+        type: 'number',
+        defaultValue: 1,
+        min: 1,
+        max: 10,
+        step: 1,
+        desc: 'Multiplicador entero de escala (1x a 10x) para pixel art nítido.'
       },
       {
         id: 'fps',

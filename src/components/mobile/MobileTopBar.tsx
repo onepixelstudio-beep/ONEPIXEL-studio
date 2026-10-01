@@ -261,7 +261,7 @@ export const MobileTopBar: React.FC<MobileTopBarProps> = React.memo(function Mob
               id="mobile-menu-trigger-btn"
             >
               {isMenuOpen ? <X className="w-4 h-4 shrink-0" strokeWidth={1.8} /> : <Menu className="w-4 h-4 shrink-0" strokeWidth={1.8} />}
-              <span className="text-[10.5px] font-bold tracking-tight hidden min-[360px]:inline">
+              <span className="text-[10.5px] font-bold tracking-tight hidden min-[430px]:inline">
                 {translate('common.options', language) || 'Opciones'}
               </span>
             </button>

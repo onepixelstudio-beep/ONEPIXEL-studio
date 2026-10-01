@@ -222,6 +222,9 @@ export interface UserPreferences {
   language?: 'es' | 'en' | 'pt' | 'zh-CN' | 'ru' | 'ja';
   diagnosticsModeEnabled?: boolean;
   theme?: 'standard' | 'dark' | 'light';
+  palmRejectionMode?: 'finger_and_pen' | 'pen_only' | 'pen_priority';
+  touchOffsetY?: number;
+  touchOffsetX?: number;
 }
 
 export interface FrameSelectionState {

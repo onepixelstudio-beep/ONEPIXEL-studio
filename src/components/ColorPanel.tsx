@@ -11,7 +11,8 @@ import {
   RotateCcw,
   Trash2,
   Sparkles,
-  FlipHorizontal
+  FlipHorizontal,
+  Download
 } from 'lucide-react';
 import { BRAND_COLORS } from '../branding/BrandTheme';
 import { CanonicalPalette } from '../types';
@@ -42,6 +43,7 @@ export interface ColorPanelProps {
   recentColors?: string[];
   onClearRecentColors?: () => void;
   onSaveRecentAsPalette?: () => void;
+  onExportRecentColors?: (colors?: string[]) => void;
   language?: string;
   libraryPalettes?: CanonicalPalette[] | any[];
   onLoadPalette?: (colors: string[]) => void;
@@ -138,6 +140,7 @@ export const ColorPanel: React.FC<ColorPanelProps> = ({
   recentColors = [],
   onClearRecentColors,
   onSaveRecentAsPalette,
+  onExportRecentColors,
   language = 'es',
   libraryPalettes = [],
   onLoadPalette,
@@ -325,6 +328,85 @@ export const ColorPanel: React.FC<ColorPanelProps> = ({
     });
     return list;
   }, [documentColors, recentColors]);
+
+  // Export the temporary recent colors history directly to a JSON file
+  const handleExportRecentColorsJSON = useCallback(() => {
+    // Prioritize explicit recentColors list, fallback to consolidated document colors
+    const colorsToExport = (recentColors && recentColors.length > 0)
+      ? recentColors
+      : (consolidatedDocColors && consolidatedDocColors.length > 0 ? consolidatedDocColors : []);
+
+    if (colorsToExport.length === 0) {
+      if (showToast) {
+        showToast(language === 'en' ? 'No recent colors to export.' : 'No hay colores recientes para exportar.', 'warning');
+      }
+      return;
+    }
+
+    // Deduplicate and filter out invalid/transparent entries
+    const uniqueColors: string[] = [];
+    const seen = new Set<string>();
+    colorsToExport.forEach(c => {
+      const norm = (c || '').trim().toLowerCase();
+      if (norm && !seen.has(norm) && norm !== 'transparent' && norm !== '#00000000') {
+        seen.add(norm);
+        uniqueColors.push(c.trim());
+      }
+    });
+
+    if (uniqueColors.length === 0) {
+      if (showToast) {
+        showToast(language === 'en' ? 'No valid colors found to export.' : 'No se encontraron colores válidos para exportar.', 'warning');
+      }
+      return;
+    }
+
+    const payload = {
+      name: 'Recent Colors',
+      type: 'palette',
+      exportedAt: new Date().toISOString(),
+      count: uniqueColors.length,
+      colors: uniqueColors
+    };
+
+    try {
+      const jsonStr = JSON.stringify(payload, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const dateStr = new Date().toISOString().slice(0, 10);
+      link.download = `recent-colors-${dateStr}.json`;
+      link.href = url;
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+        link.remove();
+      }, 100);
+
+      if (onExportRecentColors) {
+        onExportRecentColors(uniqueColors);
+      }
+
+      if (showToast) {
+        showToast(
+          language === 'en'
+            ? `Exported ${uniqueColors.length} recent colors to JSON!`
+            : `¡${uniqueColors.length} colores recientes exportados a JSON!`,
+          'success'
+        );
+      }
+    } catch (err: any) {
+      if (showToast) {
+        showToast(
+          language === 'en'
+            ? `Error exporting recent colors: ${err?.message || err}`
+            : `Error al exportar colores recientes: ${err?.message || err}`,
+          'error'
+        );
+      }
+    }
+  }, [recentColors, consolidatedDocColors, language, onExportRecentColors, showToast]);
 
   return (
     <div 
@@ -740,15 +822,30 @@ export const ColorPanel: React.FC<ColorPanelProps> = ({
             </span>
           </div>
 
-          {onClearRecentColors && recentColors && recentColors.length > 0 && (
-            <button
-              onClick={onClearRecentColors}
-              className="p-1 rounded bg-white/5 hover:bg-red-500/20 text-gray-300 hover:text-red-400 transition cursor-pointer shrink-0"
-              title={t('clearHistory')}
-            >
-              <Trash2 className="w-3 h-3" />
-            </button>
-          )}
+          <div className="flex items-center gap-1 shrink-0">
+            {/* Export Recent Colors to JSON */}
+            {((recentColors && recentColors.length > 0) || (consolidatedDocColors && consolidatedDocColors.length > 0)) && (
+              <button
+                onClick={handleExportRecentColorsJSON}
+                className="p-1 rounded bg-white/5 hover:bg-[#C8A96A]/20 text-gray-300 hover:text-[#C8A96A] transition cursor-pointer shrink-0"
+                title={language === 'en' ? 'Export recent colors to JSON' : 'Exportar colores recientes a JSON'}
+                aria-label="Export recent colors to JSON"
+                data-testid="export-recent-colors-btn"
+              >
+                <Download className="w-3 h-3" />
+              </button>
+            )}
+
+            {onClearRecentColors && recentColors && recentColors.length > 0 && (
+              <button
+                onClick={onClearRecentColors}
+                className="p-1 rounded bg-white/5 hover:bg-red-500/20 text-gray-300 hover:text-red-400 transition cursor-pointer shrink-0"
+                title={t('clearHistory')}
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            )}
+          </div>
         </div>
 
         {consolidatedDocColors.length === 0 ? (
@@ -772,8 +869,8 @@ export const ColorPanel: React.FC<ColorPanelProps> = ({
         )}
       </div>
 
-      {/* 8. BOTÓN "GUARDAR MUESTRAS COMO PALETA" */}
-      <div className="mt-auto pt-0.5 shrink-0">
+      {/* 8. BOTÓN "GUARDAR MUESTRAS COMO PALETA" Y EXPORTACIÓN JSON */}
+      <div className="mt-auto pt-0.5 shrink-0 flex items-center gap-1">
         <button
           onClick={() => {
             if (onSaveRecentAsPalette) {
@@ -786,10 +883,21 @@ export const ColorPanel: React.FC<ColorPanelProps> = ({
             }
           }}
           disabled={consolidatedDocColors.length === 0}
-          className="w-full py-1.5 px-2 rounded-lg bg-[#C8A96A]/20 hover:bg-[#C8A96A]/30 text-[#C8A96A] border border-[#C8A96A]/40 font-mono font-bold text-[11px] flex items-center justify-center gap-1.5 transition shadow cursor-pointer active:scale-98 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex-1 py-1.5 px-2 rounded-lg bg-[#C8A96A]/20 hover:bg-[#C8A96A]/30 text-[#C8A96A] border border-[#C8A96A]/40 font-mono font-bold text-[11px] flex items-center justify-center gap-1.5 transition shadow cursor-pointer active:scale-98 disabled:opacity-40 disabled:cursor-not-allowed min-w-0"
         >
-          <Save className="w-3.5 h-3.5 text-[#C8A96A]" />
-          <span>{t('saveSwatchesAsPalette')}</span>
+          <Save className="w-3.5 h-3.5 text-[#C8A96A] shrink-0" />
+          <span className="truncate">{t('saveSwatchesAsPalette')}</span>
+        </button>
+        <button
+          onClick={handleExportRecentColorsJSON}
+          disabled={consolidatedDocColors.length === 0 && (!recentColors || recentColors.length === 0)}
+          className="py-1.5 px-2 rounded-lg bg-white/5 hover:bg-[#C8A96A]/20 text-[#C8A96A] border border-[#C8A96A]/30 font-mono font-bold text-[11px] flex items-center justify-center gap-1 transition shadow cursor-pointer active:scale-98 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+          title={language === 'en' ? 'Export recent colors directly to JSON file' : 'Exportar colores recientes directamente a archivo JSON'}
+          aria-label="Export recent colors to JSON"
+          data-testid="export-recent-colors-bottom-btn"
+        >
+          <Download className="w-3.5 h-3.5 text-[#C8A96A]" />
+          <span className="text-[10px] hidden sm:inline font-bold">JSON</span>
         </button>
       </div>
     </div>

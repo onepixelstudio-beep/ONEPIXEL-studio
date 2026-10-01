@@ -308,36 +308,50 @@ export default function App() {
   const [loopEnabled, setLoopEnabled] = useState<boolean>(true);
   const playIntervalRef = useRef<any | null>(null);
 
-  // Layout & Toggles ("Ventana" controls)
+  // Helper to validate and safely parse panel visibility from localStorage against null/undefined
+  const getInitialPanelVisibility = (
+    key: 'onepixel_sidebar_visible' | 'onepixel_colors_visible' | 'onepixel_tools_visible' | 'onepixel_timeline_visible' | 'onepixel_grid_visible' | 'onepixel_zen_mode_active' | string,
+    defaultValue = true
+  ): boolean => {
+    try {
+      if (typeof window === 'undefined' || !window.localStorage) return defaultValue;
+      const saved = localStorage.getItem(key);
+      // Robust check for null or undefined entries (both runtime null/undefined and stringified 'null'/'undefined')
+      if (saved === null || saved === undefined || saved === 'null' || saved === 'undefined' || saved.trim() === '') {
+        return defaultValue;
+      }
+      return saved === 'true';
+    } catch {
+      return defaultValue;
+    }
+  };
+
+  // Layout & Toggles ("Ventana" controls) - robustly checks for null or undefined entries in localStorage
   const [sidebarVisible, setSidebarVisible] = useState<boolean>(() => {
-    const saved = localStorage.getItem('onepixel_sidebar_visible');
-    return saved !== null ? saved === 'true' : true;
+    return getInitialPanelVisibility('onepixel_sidebar_visible', true);
   });
   const [tabletDockOpen, setTabletDockOpen] = useState<boolean>(true);
   const [colorsVisible, setColorsVisible] = useState<boolean>(() => {
-    const saved = localStorage.getItem('onepixel_colors_visible');
-    return saved !== null ? saved === 'true' : true;
+    return getInitialPanelVisibility('onepixel_colors_visible', true);
   });
   const [toolsVisible, setToolsVisible] = useState<boolean>(() => {
-    const saved = localStorage.getItem('onepixel_tools_visible');
-    return saved !== null ? saved === 'true' : true;
+    return getInitialPanelVisibility('onepixel_tools_visible', true);
   });
   const [timelineVisible, setTimelineVisible] = useState<boolean>(() => {
-    const userToggled = typeof window !== 'undefined' && localStorage.getItem('onepixel_timeline_user_toggled') === 'true';
-    if (userToggled) {
-      const saved = localStorage.getItem('onepixel_timeline_visible');
-      return saved !== null ? saved === 'true' : true;
-    }
+    try {
+      const userToggled = typeof window !== 'undefined' && localStorage.getItem('onepixel_timeline_user_toggled') === 'true';
+      if (userToggled) {
+        return getInitialPanelVisibility('onepixel_timeline_visible', true);
+      }
+    } catch {}
     return !responsive.layoutStrategy.timelineAutoCollapsed;
   });
   const [gridVisible, setGridVisible] = useState<boolean>(() => {
-    const saved = localStorage.getItem('onepixel_grid_visible');
-    return saved !== null ? saved === 'true' : true;
+    return getInitialPanelVisibility('onepixel_grid_visible', true);
   });
 
   const [zenModeActive, setZenModeActive] = useState<boolean>(() => {
-    const saved = localStorage.getItem('onepixel_zen_mode_active');
-    return saved !== null ? saved === 'true' : false;
+    return getInitialPanelVisibility('onepixel_zen_mode_active', false);
   });
   const [autoSaveIntervalMinutes, setAutoSaveIntervalMinutes] = useState<number>(() => {
     return Math.max(1, Number(PreferencesSystem.getInstance().get('saving.autoSaveIntervalMinutes')) || 5);
@@ -348,21 +362,42 @@ export default function App() {
     toolsVisible: boolean;
     timelineVisible: boolean;
   } | null>(() => {
-    const saved = localStorage.getItem('onepixel_pre_zen_layout');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      if (typeof window === 'undefined' || !window.localStorage) return null;
+      const saved = localStorage.getItem('onepixel_pre_zen_layout');
+      if (saved === null || saved === undefined || saved === 'null' || saved === 'undefined' || saved.trim() === '') return null;
+      return JSON.parse(saved);
+    } catch {
+      return null;
+    }
   });
 
-  // Persist layout toggles
+  // Persist layout toggles (debounced for side panels to reduce frequent localStorage writes during resize)
   useEffect(() => {
-    localStorage.setItem('onepixel_sidebar_visible', String(sidebarVisible));
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem('onepixel_sidebar_visible', String(sidebarVisible));
+      } catch {}
+    }, 300);
+    return () => clearTimeout(timer);
   }, [sidebarVisible]);
 
   useEffect(() => {
-    localStorage.setItem('onepixel_colors_visible', String(colorsVisible));
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem('onepixel_colors_visible', String(colorsVisible));
+      } catch {}
+    }, 300);
+    return () => clearTimeout(timer);
   }, [colorsVisible]);
 
   useEffect(() => {
-    localStorage.setItem('onepixel_tools_visible', String(toolsVisible));
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem('onepixel_tools_visible', String(toolsVisible));
+      } catch {}
+    }, 300);
+    return () => clearTimeout(timer);
   }, [toolsVisible]);
 
   useEffect(() => {
@@ -3162,14 +3197,19 @@ export default function App() {
         
         showToast(translate('layout.zenModeActivated', preferences.language) || 'Modo Zen activado (Tab para salir)', 'info');
       } else {
-        // Restaurar estado guardado
-        const saved = localStorage.getItem('onepixel_pre_zen_layout');
-        const parsed = saved ? JSON.parse(saved) : null;
-        if (parsed) {
-          setSidebarVisible(parsed.sidebarVisible);
-          setColorsVisible(parsed.colorsVisible);
-          setToolsVisible(parsed.toolsVisible);
-          setTimelineVisible(parsed.timelineVisible);
+        // Restaurar estado guardado con validación contra null o undefined
+        let parsed: any = null;
+        try {
+          const saved = localStorage.getItem('onepixel_pre_zen_layout');
+          if (saved && saved !== 'null' && saved !== 'undefined' && saved.trim() !== '') {
+            parsed = JSON.parse(saved);
+          }
+        } catch {}
+        if (parsed && typeof parsed === 'object') {
+          setSidebarVisible(parsed.sidebarVisible !== undefined && parsed.sidebarVisible !== null ? Boolean(parsed.sidebarVisible) : true);
+          setColorsVisible(parsed.colorsVisible !== undefined && parsed.colorsVisible !== null ? Boolean(parsed.colorsVisible) : true);
+          setToolsVisible(parsed.toolsVisible !== undefined && parsed.toolsVisible !== null ? Boolean(parsed.toolsVisible) : true);
+          setTimelineVisible(parsed.timelineVisible !== undefined && parsed.timelineVisible !== null ? Boolean(parsed.timelineVisible) : true);
         } else {
           setSidebarVisible(true);
           setColorsVisible(true);
@@ -4441,7 +4481,7 @@ export default function App() {
           )}
           
           {/* Main drawing canvas area (centered, most highlighted component) */}
-          <div className={`flex-1 min-h-0 w-full flex flex-col ${awe.isMobile ? (awe.isMobileLandscape ? (isMobileTimelineOpen ? 'pb-40' : 'pb-24') : (isMobileTimelineOpen ? 'pb-56' : 'pb-28')) : ''}`}>
+          <div className={`flex-1 min-h-0 w-full flex flex-col ${awe.isMobile ? (awe.isMobileLandscape ? (isMobileTimelineOpen ? 'pb-28' : 'pb-16') : (isMobileTimelineOpen ? 'pb-56' : 'pb-28')) : ''}`}>
             <CanvasBoundary>
               {(!project || !project.frames || project.frames.length === 0 || tabs.length === 0) ? (
                 <EmptyWorkspace 
@@ -4509,6 +4549,10 @@ export default function App() {
                   colorBlindness={preferences.colorBlindness}
                   theme={theme}
                   themeColor={preferences.interfaceColor}
+                  preferences={preferences}
+                  palmRejectionMode={preferences.palmRejectionMode}
+                  touchOffsetY={preferences.touchOffsetY}
+                  touchOffsetX={preferences.touchOffsetX}
                 />
               )}
             </CanvasBoundary>
